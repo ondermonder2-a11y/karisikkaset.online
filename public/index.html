@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karışık Kaset</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════
+       BOOMBOX WRAPPER
+  ════════════════════════════════════════════════════ -->
+  <main class="app-bg">
+
+    <div class="room-decor" id="room-decor">
+      <figure class="wall-frame wall-frame-right">
+        <img id="wall-picture-right" alt="" />
+      </figure>
+    </div>
+
+    <div class="wall-switch-plate" role="group" aria-label="Duvar anahtarı">
+      <button class="switch-segment switch-segment-top-left" id="fullscreen-switch" type="button" aria-label="Tam ekranı aç" title="Tam ekran">
+        <span class="switch-segment-icon" aria-hidden="true">⛶</span>
+      </button>
+      <button class="switch-segment switch-segment-top-right" type="button" aria-label="Bu anahtarın işlevi henüz yok" title="İşlev daha sonra eklenecek"></button>
+      <button class="switch-segment switch-segment-bottom-left" type="button" aria-label="Bu anahtarın işlevi henüz yok" title="İşlev daha sonra eklenecek"></button>
+      <button class="switch-segment switch-segment-bottom-right" id="player-power-switch" type="button" aria-pressed="true" aria-label="Player elektriğini kes" title="Player elektriğini kes">
+        <span class="switch-segment-icon" aria-hidden="true">⏻</span>
+      </button>
+      <button class="wall-switch-center" id="room-light-switch" type="button" aria-pressed="false" aria-label="Oda ışığını kapat" title="Oda ışığını kapat">
+        <span class="wall-switch-dial" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <aside class="request-board" aria-label="Site bağlantı panosu">
+      <nav class="request-board-links" aria-label="Site bağlantıları">
+        <button class="request-note request-note-primary" id="open-song-request" type="button"><span class="request-note-icon" aria-hidden="true">♫</span><span>Şarkı iste</span></button>
+        <button class="request-note" id="open-radio-collection" type="button" aria-haspopup="dialog"><span class="request-note-icon" aria-hidden="true">◉</span><span>Radyo istasyonları</span></button>
+        <button class="request-note" id="open-tape-collection" type="button" aria-haspopup="dialog"><span class="request-note-icon" aria-hidden="true">▣</span><span>Kaset koleksiyonu</span></button>
+        <a class="request-note request-note-whatsapp" data-share-provider="whatsapp" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp ile paylaş"><span class="request-note-icon" aria-hidden="true">WA</span><span>WhatsApp</span></a>
+        <a class="request-note request-note-facebook" data-share-provider="facebook" target="_blank" rel="noopener noreferrer" aria-label="Facebook'ta paylaş"><span class="request-note-icon" aria-hidden="true">f</span><span>Facebook</span></a>
+        <a class="request-note request-note-x" data-share-provider="x" target="_blank" rel="noopener noreferrer" aria-label="X'te paylaş"><span class="request-note-icon" aria-hidden="true">X</span><span>X'te paylaş</span></a>
+        <a class="request-note request-note-telegram" data-share-provider="telegram" target="_blank" rel="noopener noreferrer" aria-label="Telegram ile paylaş"><span class="request-note-icon" aria-hidden="true">➤</span><span>Telegram</span></a>
+        <button class="request-note request-note-share" id="copy-site-link" type="button"><span class="request-note-icon" aria-hidden="true">↗</span><span>Linki kopyala</span></button>
+      </nav>
+    </aside>
+
+    <dialog class="tape-collection-dialog" id="tape-collection-dialog" aria-labelledby="tape-collection-title">
+      <div class="tape-collection-heading">
+        <div>
+          <p class="song-request-eyebrow">KARIŞIK KASET</p>
+          <h2 id="tape-collection-title">Kaset koleksiyonu</h2>
+        </div>
+        <button class="dialog-close" id="close-tape-collection" type="button" aria-label="Koleksiyonu kapat">×</button>
+      </div>
+      <div class="tape-collection-list" id="tape-collection-list" aria-live="polite"></div>
+    </dialog>
+
+    <dialog class="tape-collection-dialog radio-collection-dialog" id="radio-collection-dialog" aria-labelledby="radio-collection-title">
+      <div class="tape-collection-heading">
+        <div>
+          <p class="song-request-eyebrow">KARIŞIK KASET</p>
+          <h2 id="radio-collection-title">Radyo istasyonları</h2>
+        </div>
+        <button class="dialog-close" id="close-radio-collection" type="button" aria-label="İstasyonları kapat">×</button>
+      </div>
+      <div class="radio-collection-list" id="radio-collection-list" aria-live="polite"></div>
+    </dialog>
+
+    <dialog class="song-request-dialog" id="song-request-dialog" aria-labelledby="song-request-title">
+      <div class="song-request-heading">
+        <div>
+          <p class="song-request-eyebrow">MANTAR PANO</p>
+          <h2 id="song-request-title">Şarkı isteği</h2>
+        </div>
+        <button class="dialog-close" id="close-song-request" type="button" aria-label="Formu kapat">×</button>
+      </div>
+      <form id="song-request-form">
+        <label class="request-field">
+          <span>Şarkı adı <b aria-hidden="true">*</b></span>
+          <input name="song" type="text" maxlength="120" autocomplete="off" required />
+        </label>
+        <label class="request-field">
+          <span>Sanatçı</span>
+          <input name="artist" type="text" maxlength="120" autocomplete="off" />
+        </label>
+        <label class="request-field">
+          <span>İsminiz</span>
+          <input name="name" type="text" maxlength="80" autocomplete="name" />
+        </label>
+        <label class="request-field">
+          <span>Not</span>
+          <textarea name="note" rows="3" maxlength="500"></textarea>
+        </label>
+        <p class="request-form-status" id="song-request-status" role="status" aria-live="polite"></p>
+        <button class="request-submit" type="submit">İsteği gönder</button>
+      </form>
+    </dialog>
+
+    <!-- ── Hata toast alanı ── -->
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+    <div class="boombox-row">
+
+      <!-- Sol hoparlör ızgarası -->
+      <aside class="speaker-grille speaker-left" aria-label="Sol hoparlör">
+        <div class="grille-mesh"></div>
+        <div class="led-row">
+          <span class="led" data-led="0"></span>
+          <span class="led" data-led="1"></span>
+          <span class="led" data-led="2"></span>
+          <span class="led" data-led="3"></span>
+          <span class="led" data-led="4"></span>
+        </div>
+        <button class="speaker-light-toggle" id="speaker-light-toggle" type="button" aria-pressed="false" aria-label="Hoparlör ışık modu: ritim">
+          Işık: Ritim
+        </button>
+      </aside>
+
+      <!-- ── Merkez panel ── -->
+      <div class="center-panel">
+        <span class="chassis-screw chassis-screw-tl" aria-hidden="true"></span>
+        <span class="chassis-screw chassis-screw-tr" aria-hidden="true"></span>
+        <span class="chassis-screw chassis-screw-bl" aria-hidden="true"></span>
+        <span class="chassis-screw chassis-screw-br" aria-hidden="true"></span>
+        <div class="boombox-brand">
+          <svg class="boombox-brand-icon" viewBox="0 0 32 24" fill="none" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="29" height="21" rx="3" />
+            <path d="M5 5h22v3H5zM7 17l3-4h12l3 4v2H7z" />
+            <circle cx="12" cy="14" r="2.1" />
+            <circle cx="20" cy="14" r="2.1" />
+            <path d="M14.2 14h3.6M9 10h2m10 0h2" />
+          </svg>
+          <span>KARIŞIK KASET</span>
+        </div>
+
+        <!-- ─── Üst satır: Tuning knob / Spectrum / Volume knob ─── -->
+        <div class="top-row">
+          <!-- Tuning knob -->
+          <div class="knob-wrap" id="tuning-wrap">
+            <div class="knob"
+                 id="knob-tuning"
+                 role="slider"
+                 tabindex="0"
+                 aria-label="Tuning"
+                 aria-valuemin="88"
+                 aria-valuemax="108"
+                 aria-valuenow="91.4"
+                 aria-valuetext="91.4 MHz">
+              <div class="knob-face" id="knob-tuning-face">
+                <div class="knob-shine"></div>
+                <span class="knob-dot"></span>
+              </div>
+              <svg class="knob-ticks" viewBox="0 0 100 100" aria-hidden="true" id="tuning-ticks"></svg>
+            </div>
+            <span class="knob-label">Tuning</span>
+          </div>
+
+          <!-- Spectrum analyzer -->
+          <div class="spectrum-wrap">
+            <div class="deck-brand">
+              <span class="deck-brand-light"></span>
+              <span class="spectrum-brand-title" aria-hidden="true">STEREO SPECTRUM</span>
+              <div class="spectrum-modes" role="group" aria-label="Spektrum görünümü">
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="mirror" aria-label="Yansımalı spektrum" aria-pressed="false" title="Yansımalı spektrum">◫</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="equalizer" aria-label="Renkli ekolayzır" aria-pressed="false" title="Renkli ekolayzır">▥</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="wave" aria-label="Neon dalga" aria-pressed="false" title="Neon dalga">∿</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="classic" aria-label="Klasik çubuk spektrum" aria-pressed="false" title="Klasik çubuk spektrum">▮</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="led" aria-label="LED segment spektrum" aria-pressed="false" title="LED segment spektrum">▦</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="mono" aria-label="Tek renkli spektrum" aria-pressed="false" title="Tek renkli spektrum">≋</button>
+                <button class="spectrum-mode-button" type="button" data-spectrum-style="fire" aria-label="Sıcak tonlu spektrum" aria-pressed="false" title="Sıcak tonlu spektrum">▤</button>
+              </div>
+            </div>
+            <div class="deck-spectrum-bay">
+            <div class="spectrum-header">
+              <div class="spectrum-track-wrap" id="spectrum-track-wrap" aria-label="Şu an çalıyor">
+                <span class="spectrum-track">
+                  <span id="spectrum-track-text">FM Stereo</span>
+                  <span id="spectrum-track-copy" aria-hidden="true">FM Stereo</span>
+                </span>
+              </div>
+            </div>
+            <div class="spectrum-bars" id="spectrum-bars" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <!-- Volume knob -->
+          <div class="knob-wrap" id="volume-wrap">
+            <div class="knob"
+                 id="knob-volume"
+                 role="slider"
+                 tabindex="0"
+                 aria-label="Volume"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-valuenow="80"
+                 aria-valuetext="80%">
+              <div class="knob-face" id="knob-volume-face">
+                <div class="knob-shine"></div>
+                <span class="knob-dot"></span>
+              </div>
+              <svg class="knob-ticks" viewBox="0 0 100 100" aria-hidden="true" id="volume-ticks"></svg>
+            </div>
+            <span class="knob-label">Volume</span>
+          </div>
+        </div><!-- /top-row -->
+
+        <div class="content-columns">
+          <div class="radio-column">
+            <!-- FM Stereo ekranı -->
+            <div class="display radio-display" id="radio-display">
+            <div class="deck-brand" aria-hidden="true">
+              <span class="deck-brand-light"></span>
+              <span>STEREO FM RADIO</span>
+              <span class="deck-brand-light"></span>
+            </div>
+            <div class="deck-radio-bay">
+            <div class="display-header">
+              <span class="display-title">
+                <svg class="icon-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="2"/><path d="M4.93 4.93l1.41 1.41M19.07 4.93l-1.41 1.41M1 12h2M21 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/>
+                  <path d="M12 1v2M12 21v2"/>
+                </svg>
+                FM Stereo
+              </span>
+              <span class="display-status" id="radio-status">
+                <span class="status-dot" id="radio-dot"></span>
+                <span id="radio-status-text">Standby</span>
+              </span>
+            </div>
+            <div class="radio-freq-row">
+              <div class="frequency-display">
+                <span class="freq-big" id="radio-freq" role="img" aria-label="91.4 MHz"></span>
+                <span class="freq-info-panel" aria-label="Tarih ve saat">
+                  <span class="freq-date" id="radio-date" aria-label="Tarih"></span>
+                  <span class="freq-time" id="radio-time" aria-label="Saat"></span>
+                </span>
+              </div>
+              <div class="signal-meter">
+                <span class="signal-label">Signal</span>
+                <div class="signal-bars" id="signal-bars">
+                  <span class="sbar" data-bar="0" style="height:6px"></span>
+                  <span class="sbar" data-bar="1" style="height:9px"></span>
+                  <span class="sbar" data-bar="2" style="height:12px"></span>
+                  <span class="sbar" data-bar="3" style="height:15px"></span>
+                  <span class="sbar" data-bar="4" style="height:18px"></span>
+                </div>
+                <span class="freq-unit">MHz</span>
+              </div>
+              </div>
+            <!-- FM cetvel -->
+            <div class="fm-ruler" id="fm-ruler">
+              <div class="ruler-ticks" id="ruler-ticks"></div>
+              <div class="ruler-needle" id="ruler-needle"></div>
+            </div>
+            <div class="ruler-labels">
+              <span>88</span><span>108</span>
+            </div>
+            <div class="radio-station-info">
+              <span class="station-name" id="radio-station-name">Night Jazz FM</span>
+              <span class="station-info-separator" aria-hidden="true">-</span>
+              <span class="station-genre" id="radio-station-genre">Jazz Lounge</span>
+              <span class="station-info-separator" aria-hidden="true">-</span>
+              <div class="station-now-playing" id="radio-now-playing-wrap" aria-label="Şimdi çalıyor">
+                <span class="station-marquee-track">
+                  <span id="radio-now-playing" aria-live="polite">Şarkı bilgisi alınamıyor</span>
+                  <span id="radio-now-playing-copy" aria-hidden="true">Şarkı bilgisi alınamıyor</span>
+                </span>
+              </div>
+            </div>
+            </div>
+          </div>
+            <section class="playlist-box" id="radio-list-box">
+              <header class="playlist-header">
+                <h2 class="playlist-title">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="2"/><path d="M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M1 12h2M21 12h2M4.93 19.07l-1.41-1.41M19.07 19.07l-1.41-1.41M12 1v2M12 21v2"/>
+                  </svg>
+                  Radio Stations
+                </h2>
+                <span class="playlist-count" id="station-count">0 stations</span>
+              </header>
+              <ul class="playlist-list" id="station-list" role="listbox" aria-label="Radyo İstasyonları"></ul>
+            </section>
+
+          </div>
+
+          <div class="tape-column">
+            <!-- Kaset ekranı -->
+            <div class="display tape-display" id="tape-display">
+            <div class="display-header">
+              <span class="display-title">
+                <svg class="icon-tape" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                  <path d="M7 15h10"/>
+                </svg>
+                Tape
+              </span>
+              <span class="display-status" id="tape-status">
+                <span class="status-dot" id="tape-dot"></span>
+                <span id="tape-status-text">Stop</span>
+              </span>
+            </div>
+            <div class="deck-brand" aria-hidden="true">
+              <span class="deck-brand-light"></span>
+              <span>STEREO CASSETTE TAPE DECK</span>
+              <span class="deck-brand-light"></span>
+            </div>
+            <div class="deck-cassette-bay">
+              <div class="cassette-shell">
+              <span class="cassette-screw screw-top-left" aria-hidden="true"></span>
+              <span class="cassette-screw screw-top-right" aria-hidden="true"></span>
+              <div class="cassette-paper">
+                <span class="cassette-paper-mark" aria-hidden="true">▲</span>
+                <span class="cassette-number">NO. 01</span>
+                <h2 class="cassette-title">GUESS THE SONG</h2>
+                <span class="tape-label" id="tape-label">Karışık Kaset</span>
+              </div>
+              <div class="cassette-orange">
+                <div class="cassette-window">
+                  <div class="tape-ribbon" aria-hidden="true"></div>
+                  <div class="reel" id="reel-left"><div class="reel-spoke s0"></div><div class="reel-spoke s1"></div><div class="reel-spoke s2"></div><div class="reel-hub"></div></div>
+                  <div class="tape-counter-mark" aria-hidden="true">100&nbsp;&nbsp;&nbsp;50&nbsp;&nbsp;&nbsp;0</div>
+                  <div class="reel" id="reel-right"><div class="reel-spoke s0"></div><div class="reel-spoke s1"></div><div class="reel-spoke s2"></div><div class="reel-hub"></div></div>
+                </div>
+                <div class="cassette-playmark" aria-hidden="true">
+                  <span class="cassette-dolby">◖D◗</span>
+                  <span class="cassette-play-text">PLAY</span>
+                </div>
+              </div>
+              <span class="cassette-screw screw-bottom" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="transport-bar deck-transport">
+              <button class="tbtn" id="btn-prev" aria-label="Önceki">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="tbtn-label">REW</span>
+              </button>
+              <button class="tbtn" id="btn-stop" aria-label="Durdur" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+                <span class="tbtn-label">STOP</span>
+              </button>
+              <button class="tbtn tbtn-play" id="btn-play" aria-label="Oynat/Duraklat" aria-pressed="false">
+                <span class="play-dot" id="play-dot"></span>
+                <svg class="icon-play" id="icon-play" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <svg class="icon-pause hidden" id="icon-pause" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <span class="tbtn-label">PLAY</span>
+              </button>
+              <button class="tbtn" id="btn-next" aria-label="Sonraki">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="tbtn-label">F.FWD</span>
+              </button>
+            </div>
+            <div class="tape-progress-panel">
+              <div class="counter-row" id="counter-row">
+                <div class="counter-digits" id="counter-digits">
+                  <span class="cdigit">0</span><span class="cdigit">0</span>
+                  <span class="ccolon">:</span>
+                  <span class="cdigit">0</span><span class="cdigit">0</span>
+                </div>
+              </div>
+              <div class="auto-reverse">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                Auto Reverse
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+            <!-- İlerleme çubuğu (tıklanabilir) -->
+            <div class="progress-wrap">
+              <div class="progress-bar" id="progress-bar" role="slider" tabindex="0" aria-label="İlerleme" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+            </div>
+            <div class="progress-labels">
+              <span class="mono" id="progress-remaining">-00:00</span>
+              <span class="track-artist-small" id="tape-track-artist"></span>
+            </div>
+            </div>
+            
+
+            <section class="playlist-box" id="tape-list-box">
+            <header class="playlist-header">
+              <h2 class="playlist-title">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+                </svg>
+                Cassette Tracks
+              </h2>
+              <span class="playlist-count" id="track-count">0 tracks</span>
+            </header>
+            <div class="tape-selectors">
+              <label class="tape-selector">
+                <span>Kaset kategorisi</span>
+                <select class="tape-category-filter" id="tape-category-filter" aria-label="Kaset kategorisi">
+                  <option value="all">Tüm kategoriler</option>
+                </select>
+              </label>
+              <label class="tape-selector">
+                <span>Kaset</span>
+                <select class="tape-choice" id="tape-choice" aria-label="Kaset seç">
+                  <option value="">Kaset yok</option>
+                </select>
+              </label>
+            </div>
+            <ul class="playlist-list" id="track-list" role="listbox" aria-label="Kaset Parçaları"></ul>
+          </section>
+
+          </div>
+        </div><!-- /content-columns -->
+
+        <!-- Powered by SoundCloud (atıf zorunluluğu) -->
+        <p class="sc-credit">
+          <a href="https://soundcloud.com" target="_blank" rel="noopener">Powered by SoundCloud</a>
+        </p>
+
+      </div><!-- /center-panel -->
+
+      <!-- Sağ hoparlör ızgarası -->
+      <aside class="speaker-grille speaker-right" aria-hidden="true">
+        <div class="grille-mesh"></div>
+        <div class="led-row">
+          <span class="led" data-led="5"></span>
+          <span class="led" data-led="6"></span>
+          <span class="led" data-led="7"></span>
+          <span class="led" data-led="8"></span>
+          <span class="led" data-led="9"></span>
+        </div>
+      </aside>
+
+    </div><!-- /boombox-row -->
+
+    <p class="hint-text">Space = Oynat/Duraklat &nbsp;·&nbsp; ← → = Önceki/Sonraki &nbsp;·&nbsp; ↑ ↓ = Ses</p>
+    <footer class="legal-links" aria-label="Yasal bilgiler">
+      <button type="button" id="open-cookie-policy">Çerez politikası</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" id="open-legal-notice">Yasal uyarı</button>
+    </footer>
+
+  </main>
+
+  <dialog class="legal-dialog" id="cookie-policy-dialog" aria-labelledby="cookie-policy-title">
+    <div class="legal-dialog-heading">
+      <h2 id="cookie-policy-title">Çerez ve Yerel Depolama Politikası</h2>
+      <button class="dialog-close" type="button" data-close-legal aria-label="Pencereyi kapat">×</button>
+    </div>
+    <div class="legal-dialog-content">
+      <p>Bu uygulama, kendi sunucularında reklam, takip veya kullanıcı analizi amacıyla çerez (cookie) kullanmaz. Ses seviyesi, spektrum görünümü, hoparlör ışık modu ve istasyon tercihleri gibi kişiselleştirme ayarları yalnızca tarayıcınızın yerel depolama (localStorage) alanında tutulur. Bu veriler uygulamanın düzgün çalışmasını ve tercihinizi hatırlamasını sağlar; dilerseniz tarayıcı ayarlarınızdan dilediğiniz zaman silebilirsiniz.</p>
+      <p>Kaset çalar bileşeni SoundCloud tarafından sağlanan harici bir gömülü oynatıcı kullanır. Radyo yayınları ise doğrudan ilgili istasyonların kendi sunucularından çekilir. Bu harici hizmetlerle bağlantı kurduğunuzda; ilgili üçüncü taraflar IP adresinizi, cihaz/tarayıcı bilgilerinizi kaydedebilir veya kendi çerez / benzeri izleme teknolojilerini kullanabilirler. Bu veri işleme faaliyetleri tamamen ilgili üçüncü tarafların gizlilik politikalarına tabi olup, bu uygulamanın kontrolü dışındadır.</p>
+      <p>Bu pencerede yer alan metinler, uygulamanın mevcut teknik işleyişini açıklamak amacıyla hazırlanmış olup resmi yasal danışmanlık niteliği taşımaz.</p>
+    </div>
+  </dialog>
+
+  <dialog class="legal-dialog" id="legal-notice-dialog" aria-labelledby="legal-notice-title">
+    <div class="legal-dialog-heading">
+      <h2 id="legal-notice-title">Yasal Uyarı ve İçerik Bildirimi</h2>
+      <button class="dialog-close" type="button" data-close-legal aria-label="Pencereyi kapat">×</button>
+    </div>
+    <div class="legal-dialog-content">
+      <p>Bu uygulama, müzik eserlerini kendi sunucusunda barındırmaz, depolamaz veya sunucusuna yüklemez. Kaset çalma özelliği SoundCloud oynatıcısına, radyo özelliği ise ilgili istasyonların resmi yayın adreslerine doğrudan bağlanır. Ses ve yayın içeriği tamamen bu üçüncü taraf kaynaklardan iletilmekte olup, erişilebilirlik ve yayın koşulları ilgili kaynak sağlayıcıların tasarrufundadır.</p>
+      <p>Eserlerin, kayıtların, yayınların ve marka adlarının tüm hakları ilgili sanatçılara, yapımcılara, yayıncılara ve diğer yasal hak sahiplerine aittir. Bir içeriğin internette herkese açık olması, onun için her türlü kullanım, telifsiz dağıtım veya umuma arz izni verildiği anlamına gelmez. Bu uygulama, barındırmadığı eserler üzerinde hiçbir hak sahipliği iddiasında bulunmaz.</p>
+      <p>İçerik veya hak sahipliğiyle ilgili bir bildiriminiz (Telif Kaldırma Talebi vb.) olduğunda, hak sahipliğinizi teyit eden bilgilerle birlikte <strong>[BURAYA E-POSTA ADRESİNİZİ YAZIN]</strong> adresinden bizimle iletişime geçebilirsiniz. Bildirilen içerikler incelenerek gerekli görüldüğü takdirde kaynak bağlantı sistemden kaldırılır veya erişilemez hâle getirilir; kaynak içerik kaldırılırsa buradaki bağlantı da işlevini yitirebilir.</p>
+    </div>
+  </dialog>
+
+  <!-- Gizli SoundCloud iframe (SoundCloud Widget API) -->
+  <!-- src başlangıçta geçerli bir embed URL olmak zorunda; API boş sayfaya bağlanamaz -->
+  <iframe
+    id="sc-iframe"
+    src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/forss/flickermood&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false"
+    allow="autoplay"
+    style="position:absolute;width:1px;height:1px;top:-9999px;left:-9999px;border:0;"
+    title="SoundCloud Player"
+  ></iframe>
+
+  <!-- SoundCloud Widget API -->
+  <script src="https://w.soundcloud.com/player/api.js"></script>
+  <!-- Uygulama -->
+  <script src="app.js" defer></script>
+</body>
+</html>

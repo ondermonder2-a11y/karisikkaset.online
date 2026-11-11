@@ -1,0 +1,722 @@
+[
+  {
+    "frequency": 88.0,
+    "name": "Virgin Radio Türkiye",
+    "genre": "Pop Rock",
+    "streamUrl": "http://25443.live.streamtheworld.com:3690/VIRGIN_RADIO_SC"
+  },
+  {
+    "frequency": 88.2,
+    "name": "Radyo 7",
+    "genre": "Karışık Müzik",
+    "streamUrl": "http://46.20.3.250/;stream"
+  },
+  {
+    "frequency": 88.3,
+    "name": "DamarTürk FM",
+    "genre": "Arabesk",
+    "streamUrl": "https://live.radyositesihazir.com:10997/stream?type=http&nocache=99881"
+  },
+  {
+    "frequency": 88.5,
+    "name": "Joy Türk Turkey",
+    "genre": "Türkçe Pop",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/"
+  },
+  {
+    "frequency": 88.7,
+    "name": "Süper FM",
+    "genre": "Pop",
+    "streamUrl": "http://29023.live.streamtheworld.com:3690/SUPER_FMAAC_SC"
+  },
+  {
+    "frequency": 88.8,
+    "name": "Türkülerle Türkiye",
+    "genre": "Türkü",
+    "streamUrl": "http://37.247.98.8/stream/22/;"
+  },
+  {
+    "frequency": 89.0,
+    "name": "90'lar Turkey",
+    "genre": "90s Hits",
+    "streamUrl": "http://37.247.98.8/stream/166/"
+  },
+  {
+    "frequency": 89.2,
+    "name": "Metro FM",
+    "genre": "Yabancı Pop",
+    "streamUrl": "http://27943.live.streamtheworld.com/METRO_FMAAC_SC"
+  },
+  {
+    "frequency": 89.3,
+    "name": "Ankara Havaları",
+    "genre": "Folk",
+    "streamUrl": "http://37.247.98.8/stream/30/;"
+  },
+  {
+    "frequency": 89.5,
+    "name": "Alem FM",
+    "genre": "Türkçe Pop",
+    "streamUrl": "https://turkmedya.radyotvonline.net/alemfmaac"
+  },
+  {
+    "frequency": 89.7,
+    "name": "Radyo Fenomen",
+    "genre": "Yabancı Pop",
+    "streamUrl": "https://live.radyofenomen.com/fenomen/128/icecast.audio"
+  },
+  {
+    "frequency": 89.8,
+    "name": "Havin FM",
+    "genre": "Folk Music",
+    "streamUrl": "http://yayin6.radyohizmeti.com:7050/;stream.mp3"
+  },
+  {
+    "frequency": 90.0,
+    "name": "Altın Şarkılar",
+    "genre": "Golden Oldies",
+    "streamUrl": "http://37.247.98.8/stream/25/;"
+  },
+  {
+    "frequency": 90.2,
+    "name": "Radyo Şiran",
+    "genre": "Folk",
+    "streamUrl": "https://live.radyositesihazir.com/8078/stream"
+  },
+  {
+    "frequency": 90.4,
+    "name": "Baba Radyo",
+    "genre": "Classic Hits",
+    "streamUrl": "http://officialbabaradyo.radyotvonline.net/babaofficial"
+  },
+  {
+    "frequency": 90.5,
+    "name": "Pop 90 Turkey",
+    "genre": "90s Pop",
+    "streamUrl": "http://23623.live.streamtheworld.com:3690/POP90AAC_SC"
+  },
+  {
+    "frequency": 90.7,
+    "name": "Virgin Radyo",
+    "genre": "Pop Rock",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/VIRGIN_RADIO_ITUNES.mp3"
+  },
+  {
+    "frequency": 90.9,
+    "name": "Metro FM Turkey",
+    "genre": "Yabancı Pop",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/METRO_FM_SC?"
+  },
+  {
+    "frequency": 91.0,
+    "name": "NTV Radyo",
+    "genre": "News",
+    "streamUrl": "http://46.20.3.207/listen.pls"
+  },
+  {
+    "frequency": 91.2,
+    "name": "Süper FM 2 Turkey",
+    "genre": "Pop",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/SUPER2_SC?/"
+  },
+  {
+    "frequency": 91.4,
+    "name": "Radyo Karadeniz",
+    "genre": "Karadeniz Müziği",
+    "streamUrl": "https://radyomar.80.yayin.com.tr/;"
+  },
+  {
+    "frequency": 91.5,
+    "name": "Türkü Radyo",
+    "genre": "Folk",
+    "streamUrl": "http://radyo.turkuradyo.net:4591/turkuradyo"
+  },
+  {
+    "frequency": 91.7,
+    "name": "Pal Station",
+    "genre": "Yabancı Pop",
+    "streamUrl": "http://shoutcast.radyogrup.com:1020/"
+  },
+  {
+    "frequency": 91.9,
+    "name": "Joy Türk FM",
+    "genre": "Türkçe Pop",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_ITUNES.mp3"
+  },
+  {
+    "frequency": 92.0,
+    "name": "Genç Kral FM",
+    "genre": "Arabesk",
+    "streamUrl": "https://anadolu.liderhost.com.tr:10853/;"
+  },
+  {
+    "frequency": 92.2,
+    "name": "Kalp FM",
+    "genre": "Nostalgia",
+    "streamUrl": "https://yayin.kalpfm.com:8080/"
+  },
+  {
+    "frequency": 92.4,
+    "name": "Azadi FM",
+    "genre": "Folk",
+    "streamUrl": "https://amed.ozelip.com/8040/;"
+  },
+  {
+    "frequency": 92.5,
+    "name": "Süper FM",
+    "genre": "Pop",
+    "streamUrl": "https://playerservices.streamtheworld.com/api/livestream-redirect/SUPER2_SC"
+  },
+  {
+    "frequency": 92.7,
+    "name": "Show Radyo",
+    "genre": "Türkçe Pop",
+    "streamUrl": "http://showradyo.radyotvonline.net/showradyoaac/"
+  },
+  {
+    "frequency": 92.9,
+    "name": "Radyo Sputnik",
+    "genre": "News",
+    "streamUrl": "https://icecast-rian.cdnvideo.ru/voicestm"
+  },
+  {
+    "frequency": 93.0,
+    "name": "Türkiyem FM",
+    "genre": "Traditional Music",
+    "streamUrl": "https://server7.streamserver24.com/proxy/turkiyemfm?mp=/stream"
+  },
+  {
+    "frequency": 93.2,
+    "name": "Kurd1",
+    "genre": "Classical",
+    "streamUrl": "https://listen.radioking.com/radio/119251/stream/158701"
+  },
+  {
+    "frequency": 93.4,
+    "name": "Dinamo FM Caffe",
+    "genre": "Chillout",
+    "streamUrl": "http://channels.dinamo.fm/caffe-mp3"
+  },
+  {
+    "frequency": 93.5,
+    "name": "Radio Ava Türkiye",
+    "genre": "Pop Music",
+    "streamUrl": "http://play.markaradyo.com:8002/stream"
+  },
+  {
+    "frequency": 93.7,
+    "name": "Power Dance",
+    "genre": "Clubbing",
+    "streamUrl": "https://listen.powerapp.com.tr/powerdance/mpeg/icecast.audio"
+  },
+  {
+    "frequency": 93.9,
+    "name": "Dinamo FM Discotheque",
+    "genre": "70s",
+    "streamUrl": "http://channels.dinamo.fm/discotheque-mp3"
+  },
+  {
+    "frequency": 94.1,
+    "name": "Radyo Spor",
+    "genre": "Sports",
+    "streamUrl": "http://46.20.4.5:8170/"
+  },
+  {
+    "frequency": 94.2,
+    "name": "Gözyaşı FM",
+    "genre": "Islamic",
+    "streamUrl": "http://yayin1.canliyayin.org:8700/;*.mp3"
+  },
+  {
+    "frequency": 94.4,
+    "name": "Radyo Voyage",
+    "genre": "New Age, Ambient",
+    "streamUrl": "http://voyagewmp.radyotvonline.com/;stream.mp3"
+  },
+  {
+    "frequency": 94.6,
+    "name": "Pir Yolu",
+    "genre": "Classical",
+    "streamUrl": "http://radyopiryolu.canliyayinda.com:8165/"
+  },
+  {
+    "frequency": 94.7,
+    "name": "Park FM",
+    "genre": "Folk",
+    "streamUrl": "http://yayin.netradyom.com:8050/PARKFM/"
+  },
+  {
+    "frequency": 94.9,
+    "name": "Dost FM",
+    "genre": "Dini",
+    "streamUrl": "http://yayin1.yayindakiler.com:3156/"
+  },
+  {
+    "frequency": 95.1,
+    "name": "Radyo Ekin",
+    "genre": "Classical",
+    "streamUrl": "http://yayin.turkhosted.com:6006/"
+  },
+  {
+    "frequency": 95.2,
+    "name": "TRT FM",
+    "genre": "Türkçe Pop, Karışık",
+    "streamUrl": "https://trt.radyotvonline.net/trtfm"
+  },
+  {
+    "frequency": 95.4,
+    "name": "Damarın Merkezi FM",
+    "genre": "Arabesk Fantazi",
+    "streamUrl": "http://canli.arabeskinmerkezi.com:9180/stream"
+  },
+  {
+    "frequency": 95.6,
+    "name": "Radyo Kent",
+    "genre": "Folk Music",
+    "streamUrl": "https://kentfm955.ozelip.com/9306/stream"
+  },
+  {
+    "frequency": 95.7,
+    "name": "Bayram FM Turkey",
+    "genre": "Dini",
+    "streamUrl": "https://sslyayin.netyayin.net/3442/stream"
+  },
+  {
+    "frequency": 95.9,
+    "name": "Erzincan Cem Radyo",
+    "genre": "Classical",
+    "streamUrl": "https://erzincan.80.yayin.com.tr/stream"
+  },
+  {
+    "frequency": 96.1,
+    "name": "Hayatmix",
+    "genre": "Classical",
+    "streamUrl": "https://hayatmix.yayin.com.tr/mp3"
+  },
+  {
+    "frequency": 96.2,
+    "name": "Aşk FM",
+    "genre": "Pop Music",
+    "streamUrl": "http://yayin.asymedya.com:8020/;"
+  },
+  {
+    "frequency": 96.4,
+    "name": "Arabesk FM",
+    "genre": "Arabesk",
+    "streamUrl": "http://yayin.arabeskfm.biz:8042/"
+  },
+  {
+    "frequency": 96.6,
+    "name": "RS FM",
+    "genre": "News",
+    "streamUrl": "http://nfw.video.ria.ru/flv/audio.aspx?ID=99244423&type=mp3"
+  },
+  {
+    "frequency": 96.7,
+    "name": "Govend Radyo",
+    "genre": "Folk Music",
+    "streamUrl": "https://stream-56.zeno.fm/xzzu8kynq2zuv?zs=nZP7ZCRXQPOpDFenayr0bQ"
+  },
+  {
+    "frequency": 96.9,
+    "name": "Halk Radyo",
+    "genre": "Classical",
+    "streamUrl": "https://anadolu.liderhost.com.tr:10876/;"
+  },
+  {
+    "frequency": 97.1,
+    "name": "TGRT FM",
+    "genre": "News Talk Music",
+    "streamUrl": "https://icecasttgrt.ihlasdigitalassets.com/tgrtfm"
+  },
+  {
+    "frequency": 97.2,
+    "name": "Karadut FM",
+    "genre": "Islamic, Classical",
+    "streamUrl": "https://yayin5.radyohizmeti.com/9982/stream"
+  },
+  {
+    "frequency": 97.4,
+    "name": "Radyo A (Anadolu Üniversitesi)",
+    "genre": "Blues",
+    "streamUrl": "http://canli.radyoa.anadolu.edu.tr:44445/Radyo_A_MP3"
+  },
+  {
+    "frequency": 97.6,
+    "name": "Hatay Tempo FM",
+    "genre": "Anadolu Rock",
+    "streamUrl": "https://sslyayin.netyayin.net:1215/stream"
+  },
+  {
+    "frequency": 97.7,
+    "name": "Hey Radyo",
+    "genre": "Turkish Music",
+    "streamUrl": "https://usa4.fastcast4u.com/proxy/radyoizmirfm/mp3stream128"
+  },
+  {
+    "frequency": 97.9,
+    "name": "Radyo ODTÜ",
+    "genre": "Rock, Pop",
+    "streamUrl": "http://stream.radyoodtu.com.tr/;"
+  },
+  {
+    "frequency": 98.1,
+    "name": "NTV Radyo",
+    "genre": "News",
+    "streamUrl": "http://ntvrdwmp.radyotvonline.com/"
+  },
+  {
+    "frequency": 98.3,
+    "name": "Radyo 35",
+    "genre": "Pop",
+    "streamUrl": "https://yayin.turkhosted.com/6012/stream"
+  },
+  {
+    "frequency": 98.4,
+    "name": "Axa Rojava",
+    "genre": "Folk",
+    "streamUrl": "https://stream.zeno.fm/h6mn2c8ha8zuv"
+  },
+  {
+    "frequency": 98.6,
+    "name": "Radyo Fenomen Clubbin",
+    "genre": "Club",
+    "streamUrl": "https://live.radyofenomen.com/fenomenclubbin/128/icecast.audio"
+  },
+  {
+    "frequency": 98.8,
+    "name": "Kral Türk FM",
+    "genre": "Arabesk, Pop",
+    "streamUrl": "https://live.radyositesihazir.com/8032/stream"
+  },
+  {
+    "frequency": 98.9,
+    "name": "Slow Türk",
+    "genre": "Türkçe Slow Pop",
+    "streamUrl": "https://radyo.duhnet.tv/ak_dtvh_slowturk"
+  },
+  {
+    "frequency": 99.1,
+    "name": "Çağrı FM Diyarbakır",
+    "genre": "Dini",
+    "streamUrl": "https://anadolu.liderhost.com.tr/8002/stream?/;stream.mp3"
+  },
+  {
+    "frequency": 99.3,
+    "name": "Kuran ve Türkçe Meal",
+    "genre": "Dini",
+    "streamUrl": "http://baserorg.duckdns.org:8000/"
+  },
+  {
+    "frequency": 99.4,
+    "name": "Lalegül FM",
+    "genre": "Dini",
+    "streamUrl": "https://icecast.netmedya.net/lalegulfm"
+  },
+  {
+    "frequency": 99.6,
+    "name": "Gevaş Sesi Radyosu",
+    "genre": "Halk Müziği",
+    "streamUrl": "https://live.radyositesihazir.com:8056/stream"
+  },
+  {
+    "frequency": 99.8,
+    "name": "Damar Türk FM",
+    "genre": "Arabesk",
+    "streamUrl": "https://live.radyositesihazir.com:10997/;"
+  },
+  {
+    "frequency": 99.9,
+    "name": "Best Slow",
+    "genre": "Slow Pop",
+    "streamUrl": "https://hepsibest.radyotvonline.net/bestslow"
+  },
+  {
+    "frequency": 100.1,
+    "name": "İhya FM",
+    "genre": "Islamic, Classical",
+    "streamUrl": "https://radyo.yayin.com.tr:2727/stream"
+  },
+  {
+    "frequency": 100.3,
+    "name": "Virgin Radio Türkiye",
+    "genre": "Pop",
+    "streamUrl": "http://25643.live.streamtheworld.com:3690/VIRGIN_RADIOAAC_SC"
+  },
+  {
+    "frequency": 100.4,
+    "name": "Irvess",
+    "genre": "Aura",
+    "streamUrl": "https://irvess.com/stream/irvess"
+  },
+  {
+    "frequency": 100.6,
+    "name": "Lokum FM",
+    "genre": "Country",
+    "streamUrl": "http://37.247.98.9/stream/493/?/;stream.mp3"
+  },
+  {
+    "frequency": 100.8,
+    "name": "Konya İsra FM",
+    "genre": "Islamic",
+    "streamUrl": "https://yayin2.canliyayin.org:8210/;stream"
+  },
+  {
+    "frequency": 100.9,
+    "name": "Çeşme Viking Radyo",
+    "genre": "Pop",
+    "streamUrl": "https://ip169.ozelip.com/8432/stream"
+  },
+  {
+    "frequency": 101.1,
+    "name": "Radyo Doğubayazıt FM",
+    "genre": "Halk Müziği",
+    "streamUrl": "https://radyo1.radyo-dinle.tc/8156/stream"
+  },
+  {
+    "frequency": 101.3,
+    "name": "TRT Radyo 1",
+    "genre": "Haber, Kültür",
+    "streamUrl": "https://trt.radyotvonline.net/trt1"
+  },
+  {
+    "frequency": 101.4,
+    "name": "Fakir FM",
+    "genre": "Arabesk",
+    "streamUrl": "https://live.radyositesihazir.com/1025/stream/"
+  },
+  {
+    "frequency": 101.6,
+    "name": "Radyo Nida",
+    "genre": "İlahi",
+    "streamUrl": "https://anadolu.liderhost.com.tr/8106/stream"
+  },
+  {
+    "frequency": 101.8,
+    "name": "Joy FM Istanbul",
+    "genre": "Yabancı Slow",
+    "streamUrl": "http://21633.live.streamtheworld.com/JOY_FM128AAC.aac"
+  },
+  {
+    "frequency": 101.9,
+    "name": "Denge Gündeme",
+    "genre": "Classical",
+    "streamUrl": "http://kesintisizyayin.com:1656/"
+  },
+  {
+    "frequency": 102.1,
+    "name": "Radyo Munzur",
+    "genre": "Dersim Folk",
+    "streamUrl": "http://yayin1.yayindakiler.com:3002/;stream.nsv"
+  },
+  {
+    "frequency": 102.3,
+    "name": "Avrasya Türk Radyo",
+    "genre": "Classical",
+    "streamUrl": "https://sslyayin.netyayin.net:10909/"
+  },
+  {
+    "frequency": 102.5,
+    "name": "Radio Antalya",
+    "genre": "Downtempo",
+    "streamUrl": "https://my.radiolize.com/radio/8000/radio.mp3"
+  },
+  {
+    "frequency": 102.6,
+    "name": "Silhouette Arabesk FM",
+    "genre": "Arabesk",
+    "streamUrl": "https://yayin.radyoarabesk.com.tr:8000/stream"
+  },
+  {
+    "frequency": 102.8,
+    "name": "Tezene",
+    "genre": "Classical",
+    "streamUrl": "http://37.247.98.8/stream/22/.mp3?%26token=Bsx3vK2u28-xMp98IZDV2Q%26expires=1618686860%27%20type=%27audio/mp3%27&rd2=%27https://radyo.vip/stream"
+  },
+  {
+    "frequency": 103.0,
+    "name": "Can Radyo",
+    "genre": "Classical",
+    "streamUrl": "http://yayin1.yayindakiler.com:3124/;"
+  },
+  {
+    "frequency": 103.1,
+    "name": "Joy FM",
+    "genre": "Yabancı Slow",
+    "streamUrl": "http://25683.live.streamtheworld.com/JOY_FMAAC_SC"
+  },
+  {
+    "frequency": 103.3,
+    "name": "Dinamo FM Locodyno",
+    "genre": "DJ Sets",
+    "streamUrl": "http://channels.dinamo.fm/locodyno-mp3"
+  },
+  {
+    "frequency": 103.5,
+    "name": "Ribat FM",
+    "genre": "Islamic",
+    "streamUrl": "http://yayin1.canliyayin.org:7010/;*.mp3"
+  },
+  {
+    "frequency": 103.6,
+    "name": "Abuzer FM",
+    "genre": "Comedy",
+    "streamUrl": "http://live.radyotvonline.com:9030/;stream.nsv"
+  },
+  {
+    "frequency": 103.8,
+    "name": "Radyo Gökçeada",
+    "genre": "90s",
+    "streamUrl": "https://radyo.yayin.com.tr:6179/;"
+  },
+  {
+    "frequency": 104.0,
+    "name": "Iğdır FM",
+    "genre": "Entertainment",
+    "streamUrl": "https://yayin.yayindakiler.com:4158/;"
+  },
+  {
+    "frequency": 104.1,
+    "name": "Mayday Records",
+    "genre": "Electronic",
+    "streamUrl": "https://stream.maydayrecords.net/radio/8000/maydayrecords.mp3"
+  },
+  {
+    "frequency": 104.3,
+    "name": "Ulusal Arabesk",
+    "genre": "Arabesk",
+    "streamUrl": "https://radio.guventechnology.com/9334/stream"
+  },
+  {
+    "frequency": 104.5,
+    "name": "Barış Radyo",
+    "genre": "Islamic, Classical",
+    "streamUrl": "https://yayin2.canliyayin.org:9350/stream?/;stream.mp3"
+  },
+  {
+    "frequency": 104.6,
+    "name": "Radyo İlef",
+    "genre": "70s",
+    "streamUrl": "https://radyo.ilef.net/stream"
+  },
+  {
+    "frequency": 104.8,
+    "name": "Dinamo FM Smog",
+    "genre": "Deep House",
+    "streamUrl": "http://channels.dinamo.fm/smog-mp3"
+  },
+  {
+    "frequency": 105.0,
+    "name": "Number 1 Türk Rap",
+    "genre": "Rap",
+    "streamUrl": "https://dijimedya.radyotvonline.net/turkrap"
+  },
+  {
+    "frequency": 105.1,
+    "name": "Borusan Klasik",
+    "genre": "Klasik Müzik",
+    "streamUrl": "http://22653.live.streamtheworld.com:3690/BORUSAN_KLASIKAAC_SC"
+  },
+  {
+    "frequency": 105.3,
+    "name": "Hemdem Radyo",
+    "genre": "Arabesk Fantazi",
+    "streamUrl": "http://yayin.hemdemradyo.com/"
+  },
+  {
+    "frequency": 105.5,
+    "name": "Gökkuşağı Radyo Turkey",
+    "genre": "Pop",
+    "streamUrl": "http://gokkusagiradyo.kesintisizyayin.com:8008/"
+  },
+  {
+    "frequency": 105.6,
+    "name": "Süper FM",
+    "genre": "Pop",
+    "streamUrl": "https://yayin.superfmradyo.com.tr/superfm/stream"
+  },
+  {
+    "frequency": 105.8,
+    "name": "Retro Türk",
+    "genre": "Nostalji",
+    "streamUrl": "http://29053.live.streamtheworld.com:3690/RETROTURKAAC_SC"
+  },
+  {
+    "frequency": 106.0,
+    "name": "Türkü Radyo",
+    "genre": "Türkü",
+    "streamUrl": "https://yayin.turkhosted.com/4591/stream"
+  },
+  {
+    "frequency": 106.2,
+    "name": "Dinamo FM Sleep",
+    "genre": "Ambient",
+    "streamUrl": "http://channels.dinamo.fm/sleep-mp3"
+  },
+  {
+    "frequency": 106.3,
+    "name": "Radyo Seymen",
+    "genre": "Oyun Havası",
+    "streamUrl": "https://yayin.radyoseymen.com.tr:1070/stream"
+  },
+  {
+    "frequency": 106.5,
+    "name": "Radyo Slow Time",
+    "genre": "Yabancı Slow",
+    "streamUrl": "http://46.20.7.103:8040/;"
+  },
+  {
+    "frequency": 106.7,
+    "name": "PowerTürk Slow",
+    "genre": "Türkçe Slow Pop",
+    "streamUrl": "https://listen.powerapp.com.tr/powerturkslow/mpeg/icecast.audio"
+  },
+  {
+    "frequency": 106.8,
+    "name": "Keyf Station",
+    "genre": "Pop",
+    "streamUrl": "http://yayin.radyomadyo.com:8002/stream"
+  },
+  {
+    "frequency": 107.0,
+    "name": "Dinamo FM Legacy",
+    "genre": "Chillout",
+    "streamUrl": "http://channels.dinamo.fm/legacy-mp3"
+  },
+  {
+    "frequency": 107.2,
+    "name": "Kiss Türk",
+    "genre": "Türkçe Pop",
+    "streamUrl": "https://kiss.radyotvonline.net/kissturk"
+  },
+  {
+    "frequency": 107.3,
+    "name": "Deva FM Oyun Havası",
+    "genre": "Düğün",
+    "streamUrl": "https://radyo.radyoimza.com/8034/stream"
+  },
+  {
+    "frequency": 107.5,
+    "name": "Süper Show Radyo",
+    "genre": "Türkçe Pop",
+    "streamUrl": "https://sslyayin.netyayin.net:6065/"
+  },
+  {
+    "frequency": 107.7,
+    "name": "Mekke FM",
+    "genre": "Islamic, Classical",
+    "streamUrl": "https://radyodinle.cansuyufm.com/17175/stream;"
+  },
+  {
+    "frequency": 107.8,
+    "name": "Kayseri Gözde FM",
+    "genre": "Arabesk Fantazi",
+    "streamUrl": "https://sslyayin.radyoyayini.com:7067/stream"
+  },
+  {
+    "frequency": 108.0,
+    "name": "Magic FM",
+    "genre": "Yabancı Pop",
+    "streamUrl": "http://yayin1.yayindakiler.com:3032/"
+  }
+]

@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    container_name: karisik-kaset
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3005:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - ./data:/app/data
