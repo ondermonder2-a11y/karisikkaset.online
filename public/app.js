@@ -219,6 +219,8 @@ class TapeController {
     this._isPlaying = false;
     this._pendingUrl = null;
     this._pendingPlay = false;
+    this._autoplayAttempt = 0;
+    this._autoplayTimer = null;
 
     // Callback'ler (dışarıdan set edilir)
     this.onReady = null;
@@ -250,6 +252,8 @@ class TapeController {
     });
     this._widget.bind(SC.Widget.Events.PLAY, () => {
       this._isPlaying = true;
+      clearTimeout(this._autoplayTimer);
+      this._autoplayTimer = null;
       this.onPlay?.();
     });
     this._widget.bind(SC.Widget.Events.PAUSE, () => {
@@ -293,6 +297,9 @@ class TapeController {
   _loadAndPlay(scUrl, autoPlay) {
     this._currentDuration = 0;
     this._currentPosition = 0;
+    this._isPlaying = false;
+    const autoplayAttempt = ++this._autoplayAttempt;
+    clearTimeout(this._autoplayTimer);
     // Widget.load() ile yeni parça yükle
     this._widget.load(scUrl, {
       auto_play: autoPlay,
@@ -314,9 +321,22 @@ class TapeController {
         });
       }
     });
+    if (autoPlay) {
+      // Send play in the selection gesture too; mobile browsers may ignore delayed auto_play.
+      this._widget.play();
+      this._autoplayTimer = setTimeout(() => {
+        if (autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
+          this.onAutoplayBlocked?.();
+        }
+      }, 4000);
+    }
   }
 
-  play()  { this._widget?.play(); }
+  play()  {
+    clearTimeout(this._autoplayTimer);
+    this._autoplayTimer = null;
+    this._widget?.play();
+  }
   pause() { this._widget?.pause(); }
 
   /** Pozisyona git (saniye) */
@@ -1850,6 +1870,9 @@ class App {
       this._errorTracks.add(this._errKey(this._tapeIdx, this._trackIdx));
       this._ui.renderTrackList(this._activeTracks, this._trackIdx, this._errorTracks, this._tapeIdx);
       setTimeout(() => this._nextTrack(), 1500);
+    };
+    this._tape.onAutoplayBlocked = () => {
+      showToast('Tarayıcı otomatik oynatmayı engelledi. Çal düğmesine dokunun.');
     };
 
     this._ui.renderStationList(stations, -1, false);
