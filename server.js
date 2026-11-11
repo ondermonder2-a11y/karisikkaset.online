@@ -437,7 +437,7 @@ app.get('/api/stream', async (req, res) => {
   let lastError = null;
   for (const streamUrl of streamUrls) {
     try {
-      await proxyStream(streamUrl, req, res);
+      await proxyStream(streamUrl, res);
       return; // Başarılı
     } catch (err) {
       lastError = err;
@@ -454,7 +454,7 @@ app.get('/api/stream', async (req, res) => {
  * Belirtilen URL'yi proxy olarak istemciye bağlar.
  * 3xx redirect'leri takip eder (en fazla 5 adım).
  */
-async function proxyStream(url, req, res, redirectsLeft = 5) {
+async function proxyStream(url, res, redirectsLeft = 5) {
   if (redirectsLeft <= 0) throw new Error('Çok fazla yönlendirme.');
   console.log(`[proxy] Bağlanıyor: ${url}`);
 
@@ -464,7 +464,7 @@ async function proxyStream(url, req, res, redirectsLeft = 5) {
   if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
     upstream.resume();
     console.log(`[proxy] Redirect → ${upstream.headers.location}`);
-    return proxyStream(upstream.headers.location, req, res, redirectsLeft - 1);
+    return proxyStream(upstream.headers.location, res, redirectsLeft - 1);
   }
 
   if (upstream.statusCode < 200 || upstream.statusCode >= 400) {
@@ -491,8 +491,11 @@ async function proxyStream(url, req, res, redirectsLeft = 5) {
     else res.end();
   });
 
-  // İstemci bağlantıyı keserse upstream'i de kapat
-  req.on('close', () => upstream.destroy());
+  // GET request gövdesi tamamlandığında `req.close` tetiklenebilir;
+  // upstream yalnızca istemci yanıtı gerçekten yarıda keserse kapatılmalı.
+  res.on('close', () => {
+    if (!res.writableFinished) upstream.destroy();
+  });
 }
 
 // ─────────────────────────────────────────────
