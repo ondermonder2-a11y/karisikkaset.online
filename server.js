@@ -91,6 +91,10 @@ function requireSameOrigin(req, res, next) {
 }
 
 const adminLoginAttempts = new Map();
+const stationHealth = new Map();
+let stationCheckRun = null;
+const STATION_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+const STATION_CHECK_CONCURRENCY = 4;
 
 // ─────────────────────────────────────────────
 // Yardımcı: JSON dosyasını diskten oku (önbelleksiz)
@@ -174,8 +178,6 @@ async function probeExternalLink(value, redirectsLeft = 5) {
   if (redirectsLeft < 0) throw new Error('Çok fazla yönlendirme.');
   const { url, addresses } = await assertPublicHttpUrl(value);
   const response = await makeStreamRequest(url.toString(), {}, addresses);
-  response.on('error', () => {});
-  response.on('error', () => {});
   const result = {
     statusCode: response.statusCode,
     contentType: response.headers['content-type'] || 'Belirtilmedi',
@@ -184,6 +186,7 @@ async function probeExternalLink(value, redirectsLeft = 5) {
   };
   if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
     const nextUrl = new URL(response.headers.location, url).toString();
+    response.on('error', () => {});
     response.resume();
     return probeExternalLink(nextUrl, redirectsLeft - 1);
   }
@@ -280,6 +283,99 @@ async function readAdminTapes() {
     tapes.push({ id: file.replace(/\.json$/i, ''), ...validateTape({ ...tape, category: tape.category || 'Diğer' }) });
   }
   return tapes;
+}
+
+async function probeStation(station) {
+  const streamUrls = await resolveStreamUrl(station.streamUrl);
+  let lastResult = null;
+  for (const streamUrl of streamUrls.slice(0, 5)) {
+    try {
+      lastResult = await probeExternalLink(streamUrl);
+      if (lastResult.healthy) return lastResult;
+    } catch (error) {
+      lastResult = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+    }
+  }
+  return lastResult || { healthy: false, message: 'Çalışan bir yayın adresi bulunamadı.' };
+}
+
+async function persistStationHealth() {
+  const dataDir = join(__dirname, 'data');
+  await mkdir(dataDir, { recursive: true });
+  await writeJSONAtomic(join(dataDir, 'station-health.json'), Object.fromEntries(stationHealth));
+}
+
+async function loadStationHealth() {
+  const { data, warning } = await readJSON(join(__dirname, 'data', 'station-health.json'));
+  if (warning === 'Dosya bulunamadı.') return;
+  if (warning || !data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(warning || 'İstasyon durum dosyası geçersiz.');
+  }
+  for (const [url, result] of Object.entries(data)) {
+    if (typeof url === 'string' && result && typeof result.healthy === 'boolean') {
+      stationHealth.set(url, result);
+    }
+  }
+}
+
+function stationHealthPayload(stations) {
+  return stations.map(station => ({
+    frequency: station.frequency,
+    name: station.name,
+    streamUrl: station.streamUrl,
+    ...(stationHealth.get(station.streamUrl) || { healthy: null, message: 'Henüz kontrol edilmedi.', checkedAt: null }),
+  }));
+}
+
+async function runStationHealthSweep() {
+  if (stationCheckRun) return stationCheckRun;
+  const run = { startedAt: new Date().toISOString(), total: 0, completed: 0 };
+  stationCheckRun = run;
+  let stations;
+  try {
+    const result = await readJSON(join(__dirname, 'config', 'stations.json'));
+    if (result.warning || !Array.isArray(result.data)) {
+      throw new Error(result.warning || 'İstasyon listesi geçersiz.');
+    }
+    stations = result.data;
+    run.total = stations.length;
+  } catch (error) {
+    if (stationCheckRun === run) stationCheckRun = null;
+    throw error;
+  }
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < stations.length) {
+      const index = nextIndex++;
+      const station = stations[index];
+      let result;
+      try {
+        result = await probeStation(station);
+      } catch (error) {
+        result = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+      }
+      stationHealth.set(station.streamUrl, {
+        healthy: result.healthy,
+        message: result.message,
+        statusCode: result.statusCode || null,
+        contentType: result.contentType || null,
+        checkedAt: new Date().toISOString(),
+      });
+      run.completed++;
+    }
+  };
+  run.promise = Promise.all(Array.from(
+    { length: Math.min(STATION_CHECK_CONCURRENCY, stations.length) },
+    worker
+  )).then(async () => {
+    await persistStationHealth();
+  }).catch(error => {
+    run.error = error.message;
+    console.error('[station-health] Durumlar kaydedilemedi:', error.message);
+  }).finally(() => {
+    if (stationCheckRun === run) stationCheckRun = null;
+  });
+  return run;
 }
 
 // ─────────────────────────────────────────────
@@ -646,14 +742,65 @@ app.post('/api/admin/check-link', async (req, res) => {
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
   if (!url || url.length > 2048) return res.status(400).json({ error: 'Kontrol edilecek bağlantı geçersiz.' });
   try {
-    res.json({ ...(await probeExternalLink(url)), testedAt: new Date().toISOString() });
+    const { data: stations, warning } = await readJSON(join(__dirname, 'config', 'stations.json'));
+    if (warning || !Array.isArray(stations)) {
+      return res.status(500).json({ error: warning || 'İstasyon listesi geçersiz.' });
+    }
+    let result;
+    try {
+      result = await probeExternalLink(url);
+    } catch (error) {
+      result = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+    }
+    const station = stations.find(item => item.streamUrl === url);
+    if (station) {
+      stationHealth.set(url, {
+        healthy: result.healthy,
+        message: result.message,
+        statusCode: result.statusCode || null,
+        contentType: result.contentType || null,
+        checkedAt: new Date().toISOString(),
+      });
+      await persistStationHealth();
+    }
+    res.json({ ...result, testedAt: new Date().toISOString() });
   } catch (error) {
-    res.json({
-      healthy: false,
-      message: error.message || 'Bağlantı test edilemedi.',
-      testedAt: new Date().toISOString(),
-    });
+    console.error('[station-health] Bağlantı durumu kaydedilemedi:', error.message);
+    res.status(500).json({ error: `Bağlantı durumu kaydedilemedi: ${error.message}` });
   }
+});
+
+app.post('/api/admin/check-stations', async (req, res) => {
+  try {
+    if (stationCheckRun) {
+      return res.status(409).json({
+        error: 'Toplu kontrol zaten çalışıyor.',
+        running: true,
+        completed: stationCheckRun.completed,
+        total: stationCheckRun.total,
+      });
+    }
+    const run = await runStationHealthSweep();
+    res.status(202).json({ running: true, completed: run.completed, total: run.total });
+  } catch (error) {
+    console.error('[station-health] Toplu kontrol başlatılamadı:', error.message);
+    res.status(500).json({ error: `Toplu kontrol başlatılamadı: ${error.message}` });
+  }
+});
+
+app.get('/api/admin/station-health', async (req, res) => {
+  const { data: stations, warning } = await readJSON(join(__dirname, 'config', 'stations.json'));
+  if (warning || !Array.isArray(stations)) {
+    return res.status(500).json({ error: warning || 'İstasyon listesi geçersiz.' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    stations: stationHealthPayload(stations),
+    running: Boolean(stationCheckRun),
+    completed: stationCheckRun?.completed || 0,
+    total: stationCheckRun?.total || stations.length,
+    startedAt: stationCheckRun?.startedAt || null,
+  });
 });
 
 app.get('/api/admin/requests', async (req, res) => {
@@ -734,6 +881,15 @@ app.get('/api/stations', async (req, res) => {
   }
 
   res.json({ stations: valid, warning: warning || null });
+});
+
+app.get('/api/station-status', async (req, res) => {
+  const { data: stations, warning } = await readJSON(join(__dirname, 'config', 'stations.json'));
+  if (warning || !Array.isArray(stations)) {
+    return res.status(500).json({ error: warning || 'İstasyon listesi geçersiz.' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ stations: stationHealthPayload(stations), running: Boolean(stationCheckRun) });
 });
 
 // ─────────────────────────────────────────────
@@ -944,4 +1100,17 @@ server.listen(PORT, () => {
   }
   console.log('  Yeni istasyon eklemek: config/stations.json dosyasına satır ekle');
   console.log('  Yeni parça eklemek   : config/tracks.json  dosyasına satır ekle\n');
+  loadStationHealth()
+    .catch(error => console.error('[station-health] Önceki durumlar yüklenemedi:', error.message))
+    .finally(() => runStationHealthSweep().catch(error => {
+      console.error('[station-health] Otomatik kontrol başlatılamadı:', error.message);
+    }));
+  const stationCheckTimer = setInterval(() => {
+    if (!stationCheckRun) {
+      runStationHealthSweep().catch(error => {
+        console.error('[station-health] Zamanlanmış kontrol başarısız:', error.message);
+      });
+    }
+  }, STATION_CHECK_INTERVAL_MS);
+  stationCheckTimer.unref();
 });

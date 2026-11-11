@@ -43,8 +43,12 @@
       <section class="tab-panel" id="stations-panel">
         <div class="section-heading">
           <div><h2>Radyo istasyonları</h2><p class="muted">Bağlantıyı test edin; kaydettiğiniz değişiklikler player’da hemen kullanılır.</p></div>
-          <button class="button" id="save-stations" type="button">İstasyonları kaydet</button>
+          <div class="station-actions">
+            <button class="button button-secondary" id="check-all-stations" type="button">Tümünü kontrol et</button>
+            <button class="button" id="save-stations" type="button">İstasyonları kaydet</button>
+          </div>
         </div>
+        <p class="health-progress" id="station-check-progress" role="status" aria-live="polite">Son kontrol durumları yükleniyor…</p>
         <form class="add-form" id="add-station-form">
           <label>Frekans<input name="frequency" type="number" min="88" max="108" step="0.1" placeholder="95.0" required></label>
           <label>İstasyon adı<input name="name" maxlength="120" placeholder="İstasyon adı" required></label>

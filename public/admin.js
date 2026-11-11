@@ -15,6 +15,8 @@ let stations = [];
 let tapes = [];
 let draftTape = null;
 let draftTapeId = null;
+let stationHealth = new Map();
+let stationHealthPollTimer = null;
 
 function message(element, text, isError = false) {
   element.textContent = text;
@@ -87,11 +89,55 @@ async function checkLink(url, resultElement, button) {
     });
     resultElement.textContent = `${result.message}${result.statusCode ? ` (HTTP ${result.statusCode})` : ''}${result.contentType ? ` · ${result.contentType}` : ''}`;
     resultElement.className = `health ${result.healthy ? 'good' : 'bad'}`;
+    return result;
   } catch (error) {
     resultElement.textContent = error.message;
     resultElement.className = 'health bad';
+    return null;
   } finally {
     button.disabled = false;
+  }
+}
+
+function formatStationHealth(result) {
+  if (!result || typeof result.healthy !== 'boolean') return 'Henüz test edilmedi.';
+  const checkedAt = result.checkedAt ? new Date(result.checkedAt).toLocaleString('tr-TR') : '';
+  return `${result.healthy ? 'Çevrimiçi' : 'Çevrimdışı'} — ${result.message || 'Durum bilinmiyor.'}${checkedAt ? ` · ${checkedAt}` : ''}`;
+}
+
+function updateStationHealthCards() {
+  stationsList.querySelectorAll('.item-card[data-station-index]').forEach(card => {
+    const station = stations[Number(card.dataset.stationIndex)];
+    if (!station) return;
+    const result = stationHealth.get(station.streamUrl);
+    const health = card.querySelector('.health');
+    if (!health) return;
+    health.textContent = formatStationHealth(result);
+    health.className = `health${result?.healthy === true ? ' good' : result?.healthy === false ? ' bad' : ''}`;
+  });
+}
+
+async function refreshStationHealth() {
+  try {
+    const result = await api('/api/admin/station-health');
+    stationHealth = new Map(result.stations.map(station => [station.streamUrl, station]));
+    updateStationHealthCards();
+    const progress = document.getElementById('station-check-progress');
+    const checkButton = document.getElementById('check-all-stations');
+    if (result.running) {
+      progress.textContent = `Toplu kontrol sürüyor: ${result.completed}/${result.total} istasyon tamamlandı. Toplu kontrol kayıtlı istasyonları test eder.`;
+      checkButton.disabled = true;
+      clearTimeout(stationHealthPollTimer);
+      stationHealthPollTimer = setTimeout(refreshStationHealth, 2000);
+    } else {
+      const checked = result.stations.filter(station => typeof station.healthy === 'boolean').length;
+      progress.textContent = `${checked}/${result.total} istasyonun son kontrolü mevcut. Otomatik kontrol 15 dakikada bir yapılır.`;
+      checkButton.disabled = false;
+      clearTimeout(stationHealthPollTimer);
+      stationHealthPollTimer = null;
+    }
+  } catch (error) {
+    message(globalMessage, error.message, true);
   }
 }
 
@@ -100,11 +146,12 @@ function renderStations() {
   stations.forEach((station, index) => {
     const card = document.createElement('article');
     card.className = 'item-card';
+    card.dataset.stationIndex = String(index);
     const fields = document.createElement('div');
     fields.className = 'item-fields';
     const health = document.createElement('p');
     health.className = 'health';
-    health.textContent = 'Henüz test edilmedi.';
+    health.textContent = formatStationHealth(stationHealth.get(station.streamUrl));
     const controls = [
       makeField('MHz', station.frequency, { type: 'number' }),
       makeField('İstasyon adı', station.name, { maxLength: 120 }),
@@ -123,7 +170,12 @@ function renderStations() {
     const actions = document.createElement('div');
     actions.className = 'actions';
     const testButton = makeButton('Bağlantıyı test et', 'button-secondary', () => {
-      checkLink(station.streamUrl, health, testButton);
+      checkLink(station.streamUrl, health, testButton).then(result => {
+        if (!result) return;
+        const checkedAt = new Date().toISOString();
+        stationHealth.set(station.streamUrl, { ...result, checkedAt });
+        updateStationHealthCards();
+      });
     });
     const deleteButton = makeButton('Sil', 'button-danger', () => {
       stations.splice(index, 1);
@@ -244,6 +296,7 @@ async function loadDashboard() {
   stations = data.stations;
   tapes = data.tapes;
   renderStations();
+  await refreshStationHealth();
   renderTapePicker();
   if (tapes.length) {
     setTapeDraft(tapes[0], tapes[0].id);
@@ -321,10 +374,26 @@ document.getElementById('save-stations').addEventListener('click', async event =
     stations = result.stations;
     renderStations();
     message(globalMessage, 'İstasyonlar kaydedildi.');
+    await refreshStationHealth();
   } catch (error) {
     message(globalMessage, error.message, true);
   } finally {
     button.disabled = false;
+  }
+});
+
+document.getElementById('check-all-stations').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  document.getElementById('station-check-progress').textContent = 'Toplu kontrol başlatılıyor…';
+  try {
+    await api('/api/admin/check-stations', { method: 'POST', body: '{}' });
+    await refreshStationHealth();
+  } catch (error) {
+    message(globalMessage, error.message, true);
+    await refreshStationHealth();
+  } finally {
+    if (!stationHealthPollTimer) button.disabled = false;
   }
 });
 

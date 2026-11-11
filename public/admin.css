@@ -47,6 +47,8 @@ input[type="color"] { min-height: 42px; padding: 4px; }
 .tab-panel { padding-top: 18px; }
 .section-heading { align-items: flex-start; margin: 16px 0; }
 .section-heading .muted { margin: 0; }
+.station-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.health-progress { min-height: 1.4em; margin: -4px 0 14px; color: #c8b98f; font-size: 0.82rem; }
 .add-form { display: grid; grid-template-columns: 110px 1fr 1fr 2fr auto; align-items: end; gap: 10px; margin: 18px 0; padding: 14px; border: 1px solid #3e4038; border-radius: 9px; background: #20211d; }
 .card-list { display: grid; gap: 10px; }
 .item-card { min-width: 0; padding: 14px; border: 1px solid #41423b; border-radius: 9px; background: #23241f; }
@@ -74,6 +76,8 @@ code { color: #f0d496; }
 
 @media (max-width: 760px) {
   .page-heading, .section-heading { align-items: flex-start; flex-direction: column; }
+  .station-actions { width: 100%; }
+  .station-actions .button { flex: 1; }
   .page-heading { gap: 4px; }
   .add-form, .item-fields, .track-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .add-form .wide { grid-column: 1 / -1; }

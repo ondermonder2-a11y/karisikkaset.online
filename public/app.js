@@ -51,6 +51,11 @@ const DataLoader = {
       return [];
     }
   },
+  async fetchStationHealth() {
+    const res = await fetch('/api/station-status');
+    if (!res.ok) throw new Error(`İstasyon durumları alınamadı (HTTP ${res.status}).`);
+    return res.json();
+  },
   /** config/tapes/ klasöründeki tüm kaset JSON'larını yükler.
    *  Her öğe: { id, label, color, tracks[] } */
   async fetchTapes() {
@@ -877,7 +882,12 @@ class UI {
         const genre = document.createElement('span');
         genre.className = 'radio-collection-genre';
         genre.textContent = station.genre || 'Tür belirtilmemiş';
-        info.append(frequency, name, genre);
+        const health = this._app._stationHealth.get(station.streamUrl);
+        const healthBadge = document.createElement('span');
+        healthBadge.className = `station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}`;
+        healthBadge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST';
+        healthBadge.title = health?.message || 'İstasyon bağlantı kontrolü bekleniyor.';
+        info.append(frequency, name, genre, healthBadge);
 
         const actions = document.createElement('div');
         actions.className = 'radio-collection-actions';
@@ -928,6 +938,7 @@ class UI {
         list.appendChild(card);
       });
     };
+    this._renderRadioCollection = renderStations;
 
     openButton.addEventListener('click', () => {
       renderStations();
@@ -1592,8 +1603,12 @@ class UI {
 
       const btn = document.createElement('button');
       btn.className = `station-item${active ? ' active' : ''}`;
+      btn.dataset.stationIndex = String(i);
       btn.type = 'button';
-      btn.setAttribute('aria-label', `${s.frequency.toFixed(1)} MHz – ${s.name}${s.genre ? ` - ${s.genre}` : ''}`);
+      const health = this._app._stationHealth.get(s.streamUrl);
+      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : 'Bağlantı kontrol ediliyor';
+      btn.classList.toggle('is-offline', health?.healthy === false);
+      btn.setAttribute('aria-label', `${s.frequency.toFixed(1)} MHz – ${s.name}${s.genre ? ` - ${s.genre}` : ''} - ${statusText}`);
 
       btn.innerHTML = `
         <span class="station-freq">${s.frequency.toFixed(1)}</span>
@@ -1601,12 +1616,34 @@ class UI {
           <span class="station-info-name">${this._esc(s.name || '')}</span>
           ${s.genre ? `<span class="station-info-separator" aria-hidden="true">-</span><span class="station-info-genre">${this._esc(s.genre)}</span>` : ''}
         </span>
+        <span class="station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}" title="${this._esc(health?.message || 'İstasyon bağlantı kontrolü bekleniyor.')}">${health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST'}</span>
         ${active ? `<span class="station-dot ${isOn ? 'playing' : ''}"></span>` : ''}
       `;
       btn.addEventListener('click', () => this._app.switchToRadio(i));
       li.appendChild(btn);
       list.appendChild(li);
     });
+  }
+
+  updateStationHealth() {
+    const stations = this._app._stations;
+    document.querySelectorAll('#station-list .station-item[data-station-index]').forEach(button => {
+      const station = stations[Number(button.dataset.stationIndex)];
+      if (!station) return;
+      const health = this._app._stationHealth.get(station.streamUrl);
+      const badge = button.querySelector('.station-health-badge');
+      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : 'Bağlantı kontrol ediliyor';
+      button.classList.toggle('is-offline', health?.healthy === false);
+      button.setAttribute('aria-label', `${station.frequency.toFixed(1)} MHz – ${station.name}${station.genre ? ` - ${station.genre}` : ''} - ${statusText}`);
+      if (badge) {
+        badge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST';
+        badge.title = health?.message || 'İstasyon bağlantı kontrolü bekleniyor.';
+        badge.classList.toggle('is-online', health?.healthy === true);
+        badge.classList.toggle('is-offline', health?.healthy === false);
+      }
+    });
+    const dialog = document.getElementById('radio-collection-dialog');
+    if (dialog?.open) this._renderRadioCollection?.();
   }
 
   /** Aktif istasyon satırını görünür alana kaydır */
@@ -1730,6 +1767,8 @@ class App {
     this._metadataController = null;
     this._metadataStationUrl = null;
     this._metadataRequestId = 0;
+    this._stationHealth = new Map();
+    this._stationHealthTimer = null;
     this._powered = true;
     this._resumeAfterPowerOn = null;
     this._audioEngine = new AudioEngine();
@@ -1772,6 +1811,8 @@ class App {
     const specContainer = document.getElementById('spectrum-bars');
     this._spectrum = new Spectrum(specContainer, this._audioEngine);
     this._ui = new UI(this);
+    await this._refreshStationHealth();
+    this._stationHealthTimer = setInterval(() => this._refreshStationHealth(), 60_000);
     this._ui.setPowerState(true, false);
     this._audioEngine.setVolume(this._ui.volume);
     this._tape.setVolume(this._ui.volume);
@@ -1820,6 +1861,16 @@ class App {
     }
     this._ui._setVolumeDisplay(this._ui.volume);
     console.log('[App] Hazır. İstasyonlar:', stations.length, '| Kasetler:', tapes.length);
+  }
+
+  async _refreshStationHealth() {
+    try {
+      const result = await DataLoader.fetchStationHealth();
+      this._stationHealth = new Map(result.stations.map(station => [station.streamUrl, station]));
+      this._ui?.updateStationHealth();
+    } catch (error) {
+      console.warn('[App] İstasyon durumları güncellenemedi:', error.message);
+    }
   }
 
   _startNowPlaying(station) {
