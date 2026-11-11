@@ -930,6 +930,10 @@ body {
   -webkit-text-stroke: 0.25px rgba(50,51,47,0.6);
   pointer-events: none;
 }
+.boombox-brand h1 {
+  margin: 0;
+  font: inherit;
+}
 .boombox-brand-icon {
   width: 18px;
   height: 14px;
@@ -940,6 +944,25 @@ body {
   stroke-linejoin: round;
   filter: drop-shadow(0 1px 0 rgba(255,255,255,0.65)) drop-shadow(0 -1px 0 rgba(31,32,29,0.8));
 }
+.seo-content {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto 32px;
+  padding: 22px 24px;
+  border: 1px solid rgba(220,210,187,0.28);
+  border-radius: 10px;
+  background: rgba(25,24,21,0.88);
+  color: #e4e4e7;
+  line-height: 1.65;
+}
+.seo-content h2 {
+  margin: 0 0 10px;
+  color: #f1d59b;
+  font-size: 1.2rem;
+}
+.seo-content p {
+  margin: 0 0 10px;
+}
+.seo-content p:last-child { margin-bottom: 0; }
 .boombox-brand-icon rect,
 .boombox-brand-icon path:first-of-type,
 .boombox-brand-icon path:nth-of-type(2) {

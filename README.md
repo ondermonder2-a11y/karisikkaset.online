@@ -82,6 +82,10 @@ ADMIN_SESSION_SECRET=openssl-rand-hex-32-ile-uretilen-64-hex-karakter
 
 Parola en az 16 karakter olmalı; benzersiz ve güçlü bir parola seç. `ADMIN_SESSION_SECRET` en az 32 bayt olmalı. Örneğin terminalde `openssl rand -hex 32` çalıştır; çıktıyı yalnızca sunucudaki `.env` dosyasına yaz, sohbete veya GitHub'a gönderme. Dosyanın izinlerini `chmod 600 .env` ile kısıtla. Ardından `docker compose up -d --build` çalıştır. `.env` Git tarafından yok sayılır ve Compose bu kimlik bilgilerini yalnızca app konteynerine aktarır.
 
+## Arama motorları
+
+Ana sayfa Türkçe başlık/açıklama, canonical URL ve yapılandırılmış uygulama verisi içerir. `public/robots.txt` tarama yönergelerini, `public/sitemap.xml` ise indekslenecek ana sayfayı bildirir. Yayına aldıktan sonra `https://karisikkaset.online/sitemap.xml` adresini Google Search Console ve Bing Webmaster Tools'a gönder; sahiplik doğrulamasını da ilgili araçlardan tamamla. Bu ayarlar taranmayı kolaylaştırır, ancak arama sıralaması veya indekslenme garantisi vermez.
+
 Compose, `config/stations.json`, `config/tracks.json`, `config/tapes/` ve `data/` konumlarını host üzerinde kalıcı tutar; admin panelinde yaptığın değişiklikler imaj yeniden oluşturulduğunda silinmez. Kaynak testleri kısa bir HTTP isteği yapar; çevrimiçi durumu o anda sunucudan yanıt ve veri alındığını gösterir, üçüncü taraf yayının daha sonra kesilmeyeceğini garanti etmez. Test, yerel/özel ağ adreslerine erişime izin vermez.
 
 ## Kurallar
