@@ -9,5 +9,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+    dns:
+      - 172.18.0.3
+    networks:
+      - default
+      - web_proxy
     volumes:
       - ./data:/app/data
+
+networks:
+  web_proxy:
+    external: true
