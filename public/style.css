@@ -749,6 +749,7 @@ body {
     width: 76px;
     transform: none;
   }
+  .wall-switch-dial { display: none; }
 }
 @media (min-width: 1024px) and (min-height: 640px) {
   .app-bg {
