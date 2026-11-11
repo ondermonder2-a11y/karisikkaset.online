@@ -12,15 +12,85 @@
 
 import express from 'express';
 import { createServer } from 'http';
-import { appendFile, mkdir, readFile, readdir } from 'fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { lookup } from 'dns/promises';
 import https from 'https';
 import http from 'http';
+import { isIP } from 'net';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 const PORT = process.env.PORT || 3000;
+const ADMIN_COOKIE = 'kk_admin_session';
+const ADMIN_SESSION_SECONDS = 8 * 60 * 60;
+
+function adminIsConfigured() {
+  return Boolean(
+    process.env.ADMIN_USERNAME &&
+    (process.env.ADMIN_PASSWORD?.length || 0) >= 16 &&
+    process.env.ADMIN_SESSION_SECRET &&
+    Buffer.byteLength(process.env.ADMIN_SESSION_SECRET) >= 32
+  );
+}
+
+function safeEqual(left, right) {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function signAdminSession(expires, nonce) {
+  return createHmac('sha256', process.env.ADMIN_SESSION_SECRET)
+    .update(`${process.env.ADMIN_USERNAME}:${expires}:${nonce}`)
+    .digest('base64url');
+}
+
+function adminSessionIsValid(req) {
+  if (!adminIsConfigured()) return false;
+  const cookie = (req.headers.cookie || '').split(';').map(value => value.trim())
+    .find(value => value.startsWith(`${ADMIN_COOKIE}=`));
+  if (!cookie) return false;
+  const [, token] = cookie.split('=', 2);
+  const [expiresText, nonce, signature] = (token || '').split('.');
+  const expires = Number(expiresText);
+  if (!Number.isSafeInteger(expires) || expires <= Math.floor(Date.now() / 1000) || !nonce || !signature) {
+    return false;
+  }
+  return safeEqual(signature, signAdminSession(expires, nonce));
+}
+
+function setAdminCookie(res, token, maxAge) {
+  const value = token ? `${ADMIN_COOKIE}=${token}` : `${ADMIN_COOKIE}=`;
+  res.setHeader('Set-Cookie', `${value}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`);
+}
+
+function requireAdmin(req, res, next) {
+  if (!adminIsConfigured()) {
+    return res.status(503).json({ error: 'Admin girişi sunucuda yapılandırılmamış.' });
+  }
+  if (!adminSessionIsValid(req)) return res.status(401).json({ error: 'Oturum açmanız gerekiyor.' });
+  next();
+}
+
+function requireSameOrigin(req, res, next) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const origin = req.get('origin');
+  if (!origin) return res.status(403).json({ error: 'İstek kaynağı doğrulanamadı.' });
+  try {
+    if (new URL(origin).host !== req.get('host')) {
+      return res.status(403).json({ error: 'Siteler arası istek reddedildi.' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'İstek kaynağı geçersiz.' });
+  }
+  next();
+}
+
+const adminLoginAttempts = new Map();
 
 // ─────────────────────────────────────────────
 // Yardımcı: JSON dosyasını diskten oku (önbelleksiz)
@@ -40,30 +110,207 @@ async function readJSON(filePath) {
   }
 }
 
+async function writeJSONAtomic(filePath, data) {
+  const tempPath = `${filePath}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+  await rename(tempPath, filePath);
+}
+
+function isPublicAddress(address) {
+  const version = isIP(address);
+  if (version === 4) {
+    const parts = address.split('.').map(Number);
+    const value = (((parts[0] * 256 + parts[1]) * 256 + parts[2]) * 256 + parts[3]) >>> 0;
+    const inRange = (network, mask) => ((value & mask) >>> 0) === network;
+    const ranges = [
+      [0x00000000, 0xff000000], [0x0a000000, 0xff000000], [0x64400000, 0xffc00000],
+      [0x7f000000, 0xff000000], [0xa9fe0000, 0xffff0000], [0xac100000, 0xfff00000],
+      [0xc0000000, 0xffffff00], [0xc0000200, 0xffffff00], [0xc0a80000, 0xffff0000],
+      [0xc6120000, 0xfffe0000], [0xc6336400, 0xffffff00], [0xcb007100, 0xffffff00],
+      [0xe0000000, 0xf0000000], [0xf0000000, 0xf0000000],
+    ];
+    return !ranges.some(([network, mask]) => inRange(network, mask));
+  }
+  if (version === 6) {
+    const normalized = address.toLowerCase();
+    if (normalized.startsWith('::ffff:')) return false;
+    return !(
+      normalized === '::' || normalized === '::1' ||
+      normalized.startsWith('fc') || normalized.startsWith('fd') ||
+      /^fe[89abcdef]/.test(normalized) || normalized.startsWith('ff') ||
+      normalized.startsWith('2001:db8:')
+    );
+  }
+  return false;
+}
+
+async function assertPublicHttpUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('URL biçimi geçersiz.');
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error('Yalnızca kullanıcı bilgisi içermeyen HTTP/HTTPS bağlantıları kullanılabilir.');
+  }
+  const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (
+    hostname === 'localhost' || hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local') || hostname.endsWith('.internal')
+  ) {
+    throw new Error('Yerel ağ adresleri test edilemez.');
+  }
+  const addresses = isIP(hostname)
+    ? [{ address: hostname, family: isIP(hostname) }]
+    : await lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
+    throw new Error('Bağlantı genel internet adresine çözülmüyor.');
+  }
+  return { url, addresses };
+}
+
+async function probeExternalLink(value, redirectsLeft = 5) {
+  if (redirectsLeft < 0) throw new Error('Çok fazla yönlendirme.');
+  const { url, addresses } = await assertPublicHttpUrl(value);
+  const response = await makeStreamRequest(url.toString(), {}, addresses);
+  response.on('error', () => {});
+  response.on('error', () => {});
+  const result = {
+    statusCode: response.statusCode,
+    contentType: response.headers['content-type'] || 'Belirtilmedi',
+    stationName: response.headers['icy-name'] || null,
+    finalUrl: url.toString(),
+  };
+  if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+    const nextUrl = new URL(response.headers.location, url).toString();
+    response.resume();
+    return probeExternalLink(nextUrl, redirectsLeft - 1);
+  }
+  if (response.statusCode < 200 || response.statusCode >= 400) {
+    response.destroy();
+    return { ...result, healthy: false, message: `Kaynak HTTP ${response.statusCode} döndürdü.` };
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(() => finish(false, 'Yanıt geldi ancak akış verisi zamanında alınamadı.'), 7000);
+    const finish = (healthy, message, bytes = 0) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      response.destroy();
+      resolve({ ...result, healthy, message, bytes });
+    };
+    response.once('data', chunk => finish(true, 'Bağlantı çalışıyor; akış verisi alındı.', chunk.length));
+    response.once('end', () => finish(false, 'Kaynak bağlantıyı açtı ancak akış verisi göndermedi.'));
+    response.once('error', error => finish(false, error.message));
+  });
+}
+
+function validateStations(value) {
+  if (!Array.isArray(value) || value.length > 500) throw new Error('İstasyon listesi geçersiz veya 500 kayıttan fazla.');
+  return value.map((station, index) => {
+    if (!station || typeof station !== 'object' || Array.isArray(station)) {
+      throw new Error(`${index + 1}. istasyon kaydı geçersiz.`);
+    }
+    const frequency = Number(station.frequency);
+    const name = typeof station.name === 'string' ? station.name.trim() : '';
+    const genre = typeof station.genre === 'string' ? station.genre.trim() : '';
+    const streamUrl = typeof station.streamUrl === 'string' ? station.streamUrl.trim() : '';
+    if (!Number.isFinite(frequency) || frequency < 88 || frequency > 108) {
+      throw new Error(`${index + 1}. istasyonun frekansı 88–108 MHz arasında olmalı.`);
+    }
+    if (!name || name.length > 120 || genre.length > 80 || !streamUrl || streamUrl.length > 2048) {
+      throw new Error(`${index + 1}. istasyonun adı, türü veya bağlantısı geçersiz.`);
+    }
+    let url;
+    try { url = new URL(streamUrl); } catch { throw new Error(`${index + 1}. istasyon bağlantısı geçersiz.`); }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+      throw new Error(`${index + 1}. istasyon yalnızca kullanıcı bilgisi içermeyen HTTP/HTTPS bağlantısı kullanabilir.`);
+    }
+    return { frequency, name, genre, streamUrl };
+  });
+}
+
+function validateTape(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Kaset bilgileri geçersiz.');
+  const label = typeof value.label === 'string' ? value.label.trim() : '';
+  const category = typeof value.category === 'string' ? value.category.trim() : '';
+  const color = typeof value.color === 'string' && value.color.trim() ? value.color.trim() : '#1a237e';
+  if (!label || label.length > 120 || !category || category.length > 80 || !/^#[0-9a-f]{6}$/i.test(color)) {
+    throw new Error('Kaset adı, kategorisi veya rengi geçersiz.');
+  }
+  if (!Array.isArray(value.tracks) || value.tracks.length > 300) throw new Error('Kasette en fazla 300 parça olabilir.');
+  const tracks = value.tracks.map((track, index) => {
+    const title = typeof track?.title === 'string' ? track.title.trim() : '';
+    const subtitle = typeof track?.subtitle === 'string' ? track.subtitle.trim() : '';
+    const soundcloudUrl = typeof track?.soundcloudUrl === 'string' ? track.soundcloudUrl.trim() : '';
+    if (!title || title.length > 160 || subtitle.length > 120 || !soundcloudUrl || soundcloudUrl.length > 2048) {
+      throw new Error(`${index + 1}. parçanın bilgileri geçersiz.`);
+    }
+    let url;
+    try { url = new URL(soundcloudUrl); } catch { throw new Error(`${index + 1}. parçanın bağlantısı geçersiz.`); }
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || (hostname !== 'soundcloud.com' && !hostname.endsWith('.soundcloud.com'))) {
+      throw new Error(`${index + 1}. parça HTTPS SoundCloud bağlantısı olmalı.`);
+    }
+    return { title, subtitle, soundcloudUrl };
+  });
+  return { label, category, color, tracks };
+}
+
+function tapeSlug(label) {
+  const slug = label.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/ı/g, 'i').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
+  if (!slug) throw new Error('Kaset adı dosya adı olarak kullanılamıyor.');
+  return slug;
+}
+
+async function readAdminTapes() {
+  const tapesDir = join(__dirname, 'config', 'tapes');
+  const files = (await readdir(tapesDir)).filter(file => file.endsWith('.json')).sort();
+  const tapes = [];
+  for (const file of files) {
+    const { data, warning } = await readJSON(join(tapesDir, file));
+    if (warning) throw new Error(`${file}: ${warning}`);
+    const tape = Array.isArray(data)
+      ? { label: file.replace(/\.json$/i, ''), category: 'Diğer', color: '#1a237e', tracks: data }
+      : data;
+    tapes.push({ id: file.replace(/\.json$/i, ''), ...validateTape({ ...tape, category: tape.category || 'Diğer' }) });
+  }
+  return tapes;
+}
+
 // ─────────────────────────────────────────────
 // Yardımcı: HTTP/HTTPS GET — Promise tabanlı (metin yanıt)
 // Redirect'leri takip eder (en fazla 5 yönlendirme).
 // ─────────────────────────────────────────────
-function fetchText(url, redirectsLeft = 5) {
+async function fetchText(value, redirectsLeft = 5) {
+  if (redirectsLeft <= 0) throw new Error('Çok fazla yönlendirme.');
+  const { url, addresses } = await assertPublicHttpUrl(value);
+  const response = await makeStreamRequest(url.toString(), {}, addresses);
+  if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+    const nextUrl = new URL(response.headers.location, url).toString();
+    response.resume();
+    return fetchText(nextUrl, redirectsLeft - 1);
+  }
+  if (response.statusCode < 200 || response.statusCode >= 400) {
+    response.resume();
+    throw new Error(`HTTP ${response.statusCode}`);
+  }
   return new Promise((resolve, reject) => {
-    if (redirectsLeft <= 0) return reject(new Error('Çok fazla yönlendirme.'));
-    const proto = url.startsWith('https') ? https : http;
-    const req = proto.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KarisikKaset/1.0)' },
-      timeout: 8000,
-    }, (res) => {
-      // 3xx → redirect takibi
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        return resolve(fetchText(res.headers.location, redirectsLeft - 1));
+    let body = '';
+    response.setEncoding('utf8');
+    response.on('data', chunk => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        response.destroy();
+        reject(new Error('Playlist dosyası 1 MB sınırını aştı.'));
       }
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => resolve(body));
     });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Zaman aşımı.')); });
+    response.on('end', () => resolve(body));
+    response.on('error', reject);
   });
 }
 
@@ -118,7 +365,7 @@ async function resolveStreamUrl(url) {
 // Yardımcı: HTTP isteği gönder (timeout destekli), Promise
 // Sadece response nesnesi döner; body okunmaz (stream için).
 // ─────────────────────────────────────────────
-function makeStreamRequest(url, extraHeaders = {}) {
+function makeStreamRequest(url, extraHeaders = {}, pinnedAddresses = null) {
   return new Promise((resolve, reject) => {
     const proto = url.startsWith('https') ? https : http;
     // URL'den host ve path ayır (port dahil)
@@ -135,6 +382,13 @@ function makeStreamRequest(url, extraHeaders = {}) {
       },
       timeout: 10000,
     };
+    if (pinnedAddresses) {
+      options.lookup = (hostname, lookupOptions, callback) => {
+        if (typeof lookupOptions === 'function') callback = lookupOptions;
+        if (lookupOptions?.all) callback(null, pinnedAddresses);
+        else callback(null, pinnedAddresses[0].address, pinnedAddresses[0].family);
+      };
+    }
     const req = proto.request(options, resolve);
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('Stream bağlantı zaman aşımı.')); });
@@ -170,17 +424,20 @@ function readIcyMetadata(url, redirectsLeft = 5) {
       else resolve(metadata);
     };
 
-    makeStreamRequest(url, { 'Icy-MetaData': '1' }).then((upstream) => {
+    assertPublicHttpUrl(url)
+      .then(({ url: safeUrl, addresses }) => makeStreamRequest(safeUrl.toString(), { 'Icy-MetaData': '1' }, addresses))
+      .then((upstream) => {
       response = upstream;
       if (settled) {
         upstream.destroy();
         return;
       }
       if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
+        const nextUrl = new URL(upstream.headers.location, url).toString();
         upstream.resume();
         clearTimeout(timeout);
         settled = true;
-        readIcyMetadata(upstream.headers.location, redirectsLeft - 1).then(resolve, reject);
+        readIcyMetadata(nextUrl, redirectsLeft - 1).then(resolve, reject);
         return;
       }
       if (upstream.statusCode < 200 || upstream.statusCode >= 400) {
@@ -237,9 +494,184 @@ function readIcyMetadata(url, redirectsLeft = 5) {
 // ─────────────────────────────────────────────
 // Statik dosyalar
 // ─────────────────────────────────────────────
-app.use(express.json({ limit: '8kb' }));
+app.use(express.json({ limit: '512kb' }));
+app.get('/admin', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(join(__dirname, 'public', 'admin.html'));
+});
 app.use(express.static(join(__dirname, 'public')));
 app.use('/arkaplan', express.static(join(__dirname, 'arkaplan')));
+
+app.use('/api/admin', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+app.get('/api/admin/session', (req, res) => {
+  res.json({ enabled: adminIsConfigured(), authenticated: adminSessionIsValid(req) });
+});
+
+app.post('/api/admin/login', requireSameOrigin, (req, res) => {
+  if (!adminIsConfigured()) {
+    return res.status(503).json({ error: 'Admin girişi sunucuda yapılandırılmamış.' });
+  }
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const attempt = adminLoginAttempts.get(key);
+  if (attempt && attempt.resetAt > now && attempt.count >= 5) {
+    return res.status(429).json({ error: 'Çok fazla giriş denemesi. 15 dakika sonra tekrar deneyin.' });
+  }
+  if (adminLoginAttempts.size > 1000) {
+    for (const [ip, entry] of adminLoginAttempts) {
+      if (entry.resetAt <= now) adminLoginAttempts.delete(ip);
+    }
+  }
+
+  const username = typeof req.body?.username === 'string' ? req.body.username : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const usernameValid = safeEqual(username, process.env.ADMIN_USERNAME);
+  const passwordValid = safeEqual(password, process.env.ADMIN_PASSWORD);
+  const valid = usernameValid && passwordValid;
+  if (!valid) {
+    const current = attempt && attempt.resetAt > now ? attempt : { count: 0, resetAt: now + 15 * 60 * 1000 };
+    current.count++;
+    adminLoginAttempts.set(key, current);
+    return res.status(401).json({ error: 'Kullanıcı adı veya parola hatalı.' });
+  }
+
+  adminLoginAttempts.delete(key);
+  const expires = Math.floor(now / 1000) + ADMIN_SESSION_SECONDS;
+  const nonce = randomBytes(18).toString('base64url');
+  const signature = signAdminSession(expires, nonce);
+  setAdminCookie(res, `${expires}.${nonce}.${signature}`, ADMIN_SESSION_SECONDS);
+  res.json({ authenticated: true });
+});
+
+app.post('/api/admin/logout', requireSameOrigin, (req, res) => {
+  setAdminCookie(res, '', 0);
+  res.json({ authenticated: false });
+});
+
+app.use('/api/admin', requireAdmin, requireSameOrigin);
+
+app.get('/api/admin/data', async (req, res) => {
+  try {
+    const { data: stations, warning } = await readJSON(join(__dirname, 'config', 'stations.json'));
+    if (warning || !Array.isArray(stations)) throw new Error(warning || 'İstasyon dosyası bir dizi olmalı.');
+    res.json({ stations, tapes: await readAdminTapes() });
+  } catch (error) {
+    console.error('[admin] Yapılandırma okunamadı:', error.message);
+    res.status(500).json({ error: `Yapılandırma okunamadı: ${error.message}` });
+  }
+});
+
+app.put('/api/admin/stations', async (req, res) => {
+  let stations;
+  try {
+    stations = validateStations(req.body?.stations);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    await writeJSONAtomic(join(__dirname, 'config', 'stations.json'), stations);
+    res.json({ stations });
+  } catch (error) {
+    console.error('[admin] İstasyonlar kaydedilemedi:', error.message);
+    res.status(500).json({ error: `İstasyonlar kaydedilemedi: ${error.message}` });
+  }
+});
+
+app.post('/api/admin/tapes', async (req, res) => {
+  let tape;
+  try {
+    tape = validateTape(req.body?.tape);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    const id = tapeSlug(tape.label);
+    const filePath = join(__dirname, 'config', 'tapes', `${id}.json`);
+    try {
+      await readFile(filePath);
+      return res.status(409).json({ error: 'Bu kaset adı zaten kullanılıyor.' });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    await writeJSONAtomic(filePath, tape);
+    res.status(201).json({ tape: { id, ...tape } });
+  } catch (error) {
+    console.error('[admin] Kaset eklenemedi:', error.message);
+    const status = error.code === 'EEXIST' ? 409 : 500;
+    res.status(status).json({ error: `Kaset eklenemedi: ${error.message}` });
+  }
+});
+
+app.put('/api/admin/tapes/:id', async (req, res) => {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
+  }
+  let tape;
+  try {
+    tape = validateTape(req.body?.tape);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    const filePath = join(__dirname, 'config', 'tapes', `${req.params.id}.json`);
+    await readFile(filePath);
+    await writeJSONAtomic(filePath, tape);
+    res.json({ tape: { id: req.params.id, ...tape } });
+  } catch (error) {
+    const status = error.code === 'ENOENT' ? 404 : 500;
+    console.error('[admin] Kaset kaydedilemedi:', error.message);
+    res.status(status).json({ error: `Kaset kaydedilemedi: ${error.message}` });
+  }
+});
+
+app.delete('/api/admin/tapes/:id', async (req, res) => {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
+  }
+  try {
+    await unlink(join(__dirname, 'config', 'tapes', `${req.params.id}.json`));
+    res.json({ deleted: true });
+  } catch (error) {
+    const status = error.code === 'ENOENT' ? 404 : 500;
+    console.error('[admin] Kaset silinemedi:', error.message);
+    res.status(status).json({ error: `Kaset silinemedi: ${error.message}` });
+  }
+});
+
+app.post('/api/admin/check-link', async (req, res) => {
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  if (!url || url.length > 2048) return res.status(400).json({ error: 'Kontrol edilecek bağlantı geçersiz.' });
+  try {
+    res.json({ ...(await probeExternalLink(url)), testedAt: new Date().toISOString() });
+  } catch (error) {
+    res.json({
+      healthy: false,
+      message: error.message || 'Bağlantı test edilemedi.',
+      testedAt: new Date().toISOString(),
+    });
+  }
+});
+
+app.get('/api/admin/requests', async (req, res) => {
+  const filePath = join(__dirname, 'data', 'song-requests.jsonl');
+  try {
+    const fileInfo = await stat(filePath);
+    if (fileInfo.size > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: 'İstek dosyası 10 MB sınırını aştı; sunucu tarafından incelenmesi gerekiyor.' });
+    }
+    const raw = await readFile(filePath, 'utf8');
+    const requests = raw.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)).slice(-500).reverse();
+    res.json({ requests });
+  } catch (error) {
+    if (error.code === 'ENOENT') return res.json({ requests: [] });
+    console.error('[admin] Şarkı istekleri okunamadı:', error.message);
+    res.status(500).json({ error: `Şarkı istekleri okunamadı: ${error.message}` });
+  }
+});
 
 // ─────────────────────────────────────────────
 // POST /api/song-requests
@@ -456,15 +888,17 @@ app.get('/api/stream', async (req, res) => {
  */
 async function proxyStream(url, res, redirectsLeft = 5) {
   if (redirectsLeft <= 0) throw new Error('Çok fazla yönlendirme.');
-  console.log(`[proxy] Bağlanıyor: ${url}`);
+  const { url: safeUrl, addresses } = await assertPublicHttpUrl(url);
+  console.log(`[proxy] Bağlanıyor: ${safeUrl}`);
 
-  const upstream = await makeStreamRequest(url);
+  const upstream = await makeStreamRequest(safeUrl.toString(), {}, addresses);
 
   // 3xx yönlendirme
   if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
+    const nextUrl = new URL(upstream.headers.location, safeUrl).toString();
     upstream.resume();
-    console.log(`[proxy] Redirect → ${upstream.headers.location}`);
-    return proxyStream(upstream.headers.location, res, redirectsLeft - 1);
+    console.log(`[proxy] Redirect → ${nextUrl}`);
+    return proxyStream(nextUrl, res, redirectsLeft - 1);
   }
 
   if (upstream.statusCode < 200 || upstream.statusCode >= 400) {
@@ -505,6 +939,9 @@ async function proxyStream(url, res, redirectsLeft = 5) {
 const server = createServer(app);
 server.listen(PORT, () => {
   console.log(`\n🎙  Karışık Kaset çalışıyor → http://localhost:${PORT}\n`);
+  if (!adminIsConfigured()) {
+    console.warn('[admin] Admin paneli kapalı: ADMIN_USERNAME, en az 16 karakterli ADMIN_PASSWORD ve en az 32 bayt ADMIN_SESSION_SECRET yapılandırılmalı.');
+  }
   console.log('  Yeni istasyon eklemek: config/stations.json dosyasına satır ekle');
   console.log('  Yeni parça eklemek   : config/tracks.json  dosyasına satır ekle\n');
 });

@@ -9,6 +9,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
     dns:
       - 172.18.0.3
     networks:
@@ -16,6 +19,9 @@ services:
       - web_proxy
     volumes:
       - ./data:/app/data
+      - ./config/stations.json:/app/config/stations.json
+      - ./config/tracks.json:/app/config/tracks.json
+      - ./config/tapes:/app/config/tapes
 
 networks:
   web_proxy:

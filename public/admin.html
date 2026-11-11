@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Yönetim | Karışık Kaset</title>
+  <link rel="stylesheet" href="/admin.css">
+  <script src="/admin.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/">KARIŞIK KASET <span>YÖNETİM</span></a>
+      <button class="button button-muted hidden" id="logout-button" type="button">Güvenli çıkış</button>
+    </header>
+
+    <section class="panel login-panel" id="login-panel" aria-labelledby="login-title">
+      <p class="eyebrow">Yönetici alanı</p>
+      <h1 id="login-title">Admin girişi</h1>
+      <p class="muted">Radyo istasyonlarını, kasetleri ve şarkı isteklerini yönetin.</p>
+      <form id="login-form" class="form-stack">
+        <label>Kullanıcı adı<input name="username" autocomplete="username" required maxlength="120"></label>
+        <label>Parola<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
+        <button class="button" type="submit">Giriş yap</button>
+      </form>
+      <p class="message" id="login-message" role="status" aria-live="polite"></p>
+      <p class="setup-note hidden" id="setup-note">Admin henüz sunucuda yapılandırılmamış. Sunucu yöneticisi <code>.env</code> içinde ADMIN_USERNAME, ADMIN_PASSWORD ve ADMIN_SESSION_SECRET tanımlamalı.</p>
+    </section>
+
+    <section class="workspace hidden" id="workspace">
+      <div class="page-heading">
+        <div><p class="eyebrow">Kontrol merkezi</p><h1>Karışık Kaset</h1></div>
+        <p class="muted">Kaynak bağlantıları üçüncü tarafların yayınına bağlıdır. Test, yalnızca sunucudan yanıt alınabildiğini gösterir.</p>
+      </div>
+      <nav class="tabs" aria-label="Yönetim bölümleri">
+        <button class="tab active" type="button" data-tab="stations">Radyo istasyonları</button>
+        <button class="tab" type="button" data-tab="tapes">Kasetler ve parçalar</button>
+        <button class="tab" type="button" data-tab="requests">Şarkı istekleri</button>
+      </nav>
+      <p class="message global-message" id="global-message" role="status" aria-live="polite"></p>
+
+      <section class="tab-panel" id="stations-panel">
+        <div class="section-heading">
+          <div><h2>Radyo istasyonları</h2><p class="muted">Bağlantıyı test edin; kaydettiğiniz değişiklikler player’da hemen kullanılır.</p></div>
+          <button class="button" id="save-stations" type="button">İstasyonları kaydet</button>
+        </div>
+        <form class="add-form" id="add-station-form">
+          <label>Frekans<input name="frequency" type="number" min="88" max="108" step="0.1" placeholder="95.0" required></label>
+          <label>İstasyon adı<input name="name" maxlength="120" placeholder="İstasyon adı" required></label>
+          <label>Tür<input name="genre" maxlength="80" placeholder="Müzik türü"></label>
+          <label class="wide">Yayın bağlantısı<input name="streamUrl" type="url" maxlength="2048" placeholder="https://..." required></label>
+          <button class="button button-secondary" type="submit">Listeye ekle</button>
+        </form>
+        <div class="card-list" id="stations-list" aria-live="polite"></div>
+      </section>
+
+      <section class="tab-panel hidden" id="tapes-panel">
+        <div class="section-heading">
+          <div><h2>Kasetler ve parçalar</h2><p class="muted">Kaset ve SoundCloud bağlantılarını düzenleyin.</p></div>
+          <button class="button" id="new-tape" type="button">Yeni kaset</button>
+        </div>
+        <label class="tape-picker">Düzenlenecek kaset
+          <select id="tape-picker"></select>
+        </label>
+        <form id="tape-form" class="form-stack">
+          <div class="add-form tape-fields">
+            <label>Kaset adı<input name="label" maxlength="120" required></label>
+            <label>Kategori<input name="category" maxlength="80" required></label>
+            <label>Renk<input name="color" type="color" value="#1a237e" required></label>
+          </div>
+          <div class="section-heading tracks-heading">
+            <div><h3>Parçalar</h3><span class="muted" id="track-count"></span></div>
+            <button class="button button-secondary" id="add-track" type="button">Parça ekle</button>
+          </div>
+          <div class="card-list" id="tracks-list"></div>
+          <div class="actions">
+            <button class="button" type="submit" id="save-tape">Kaseti kaydet</button>
+            <button class="button button-danger hidden" type="button" id="delete-tape">Kaseti sil</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="tab-panel hidden" id="requests-panel">
+        <div class="section-heading">
+          <div><h2>Şarkı istekleri</h2><p class="muted">En son 500 istek görüntülenir.</p></div>
+          <button class="button button-secondary" id="refresh-requests" type="button">Yenile</button>
+        </div>
+        <div class="request-list" id="requests-list" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
