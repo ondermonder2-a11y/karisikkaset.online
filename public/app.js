@@ -81,6 +81,7 @@ class AudioEngine {
     this._gain = null;
     this._analyser = null;
     this._audio = null;
+    this._playRequestId = 0;
     this._volume = 0.8;
     this._freqData = null;
   }
@@ -105,8 +106,9 @@ class AudioEngine {
    * Tüm ses /api/stream proxy üzerinden akar (CORS + güvenlik).
    */
   async playStream(url) {
-    this.ensureContext();
     this.stop();
+    const requestId = this._playRequestId;
+    this.ensureContext();
 
     // PLS veya M3U ise sunucudan gerçek stream URL'sini al
     let streamUrl = url;
@@ -126,6 +128,8 @@ class AudioEngine {
       }
     }
 
+    if (requestId !== this._playRequestId) return null;
+
     const audio = new Audio();
     audio.crossOrigin = 'anonymous';
     this._audio = audio;
@@ -139,18 +143,22 @@ class AudioEngine {
 
     try {
       if (this._ctx.state === 'suspended') await this._ctx.resume();
+      if (requestId !== this._playRequestId) return null;
       const src = this._ctx.createMediaElementSource(audio);
       src.connect(this._gain);
       await audio.play();
     } catch (err) {
-      showToast('Stream başlatılamadı: ' + (err.message || err));
-      console.error('[AudioEngine] play hatası:', err);
+      if (requestId === this._playRequestId && this._audio === audio && err.name !== 'AbortError') {
+        showToast('Stream başlatılamadı: ' + (err.message || err));
+        console.error('[AudioEngine] play hatası:', err);
+      }
     }
 
     return audio;
   }
 
   stop() {
+    this._playRequestId++;
     if (this._audio) {
       this._audio.pause();
       this._audio.src = '';

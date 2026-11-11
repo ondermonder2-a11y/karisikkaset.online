@@ -486,6 +486,7 @@ async function proxyStream(url, res, redirectsLeft = 5) {
   upstream.pipe(res, { end: true });
 
   upstream.on('error', (err) => {
+    if (res.destroyed && !res.writableFinished) return;
     console.error('[proxy] Upstream akış hatası:', err.message);
     if (!res.headersSent) res.status(502).end();
     else res.end();
