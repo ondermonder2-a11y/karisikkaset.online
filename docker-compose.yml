@@ -1,9 +1,26 @@
 services:
+
+  # ── SoundCloud Playlist Scraper (Python) ──────────────────────────────────
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    container_name: karisik-scraper
+    restart: unless-stopped
+    networks:
+      - default
+    # Port dışarıya açılmıyor — sadece app servisi erişir
+    expose:
+      - "5001"
+
+  # ── Ana uygulama (Node.js) ────────────────────────────────────────────────
   app:
     build: .
     container_name: karisik-kaset
     restart: unless-stopped
     init: true
+    depends_on:
+      - scraper
     ports:
       - "3005:3000"
     environment:
@@ -12,8 +29,13 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      # Scraper adresi: Docker iç ağında servis adıyla erişilir
+      SCRAPER_HOST: scraper
+      SCRAPER_PORT: 5001
     dns:
-      - 172.18.0.3
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     networks:
       - default
       - web_proxy

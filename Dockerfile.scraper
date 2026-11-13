@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Sadece requests gerekiyor
+RUN pip install --no-cache-dir requests==2.31.0
+
+COPY sc_scraper.py ./
+
+# Scraper'ı 0.0.0.0'da dinlet (container dışından erişilebilsin)
+EXPOSE 5001
+
+CMD ["python", "sc_scraper.py", "--host", "0.0.0.0", "--port", "5001"]

@@ -93,3 +93,31 @@ Compose, `config/stations.json`, `config/tracks.json`, `config/tapes/` ve `data/
 - **Frekans**: 88–108 MHz aralığı dışındakiler otomatik atlanır.
 - **Stream proxy**: Yalnızca `stations.json`'da tanımlı URL'ler proxylenir (açık proxy koruması).
 - **SoundCloud**: Widget API üzerinden çalışır. Atıf gizlenemez ("Powered by SoundCloud").
+
+
+Docker imajını son değişikliklerle build edip konteyneri güncelliyorum; ardından web uygulamasının yanıtını doğrulayacağım.
+
+PowerShell’i açıp şu komutları sırayla çalıştır:
+
+```powershell
+cd "D:\Projeler\Node\karisikkaset"
+docker compose build
+docker compose up -d
+docker compose ps
+
+```
+
+İkisini tek komutla yapmak istersen:
+
+```powershell
+cd "D:\Projeler\Node\karisikkaset"
+docker compose up --build -d
+```
+
+Docker Desktop önce açık ve **Engine çalışır durumda** olmalı. Uygulama açılınca [http://localhost:3005](http://localhost:3005) adresine git. Hata kayıtlarını görmek için:
+
+```powershell
+docker compose logs -f app
+```
+
+`web_proxy` ağı bulunamadı hatası çıkarsa çıktıyı gönder; compose ayarına göre çözelim.

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * app.js — Karışık Kaset | Ana uygulama
  *
  * Modüller:
@@ -89,6 +89,9 @@ class AudioEngine {
     this._playRequestId = 0;
     this._volume = 0.8;
     this._freqData = null;
+    this._timeData = null;
+    this._channelAnalysers = null;
+    this._channelTimeData = null;
   }
 
   /** AudioContext'i ilk kullanıcı etkileşiminde başlatır (tarayıcı politikası) */
@@ -101,8 +104,25 @@ class AudioEngine {
     this._analyser.fftSize = 512;
     this._analyser.smoothingTimeConstant = 0.8;
     this._freqData = new Uint8Array(this._analyser.frequencyBinCount);
+    this._timeData = new Uint8Array(this._analyser.fftSize);
     this._gain.connect(this._analyser);
     this._analyser.connect(this._ctx.destination);
+
+    const splitter = this._ctx.createChannelSplitter(2);
+    const silentGain = this._ctx.createGain();
+    silentGain.gain.value = 0;
+    silentGain.connect(this._ctx.destination);
+    this._channelAnalysers = [0, 1].map(() => {
+      const analyser = this._ctx.createAnalyser();
+      analyser.fftSize = 512;
+      return analyser;
+    });
+    this._channelTimeData = this._channelAnalysers.map(analyser => new Uint8Array(analyser.fftSize));
+    this._gain.connect(splitter);
+    this._channelAnalysers.forEach((analyser, channel) => {
+      splitter.connect(analyser, channel);
+      analyser.connect(silentGain);
+    });
   }
 
   /**
@@ -138,6 +158,14 @@ class AudioEngine {
     const audio = new Audio();
     audio.crossOrigin = 'anonymous';
     this._audio = audio;
+    audio.addEventListener('error', () => {
+      if (requestId === this._playRequestId && this._audio === audio) {
+        showToast('Radyo yayını başlatılamadı. İstasyon bağlantısını kontrol edin.');
+        console.error('[AudioEngine] Stream medya hatası:', audio.error?.message || audio.error?.code || 'Bilinmeyen hata');
+        // Yayın düştüyse dinleyici sayacından da düş
+        Heartbeat.stop();
+      }
+    }, { once: true });
 
     // Proxy üzerinden aktar — backend beyaz liste kontrolü yapar.
     // Not: /api/stream, PLS'yi de kendi içinde çözer; resolve adımı
@@ -199,6 +227,26 @@ class AudioEngine {
     });
   }
 
+  getWaveform() {
+    if (!this._analyser || !this._timeData) return null;
+    this._analyser.getByteTimeDomainData(this._timeData);
+    return this._timeData;
+  }
+
+  getStereoLevels() {
+    if (!this._channelAnalysers || !this._channelTimeData) return [0, 0];
+    return this._channelAnalysers.map((analyser, channel) => {
+      const samples = this._channelTimeData[channel];
+      analyser.getByteTimeDomainData(samples);
+      let sumSquares = 0;
+      for (const sample of samples) {
+        const value = (sample - 128) / 128;
+        sumSquares += value * value;
+      }
+      return Math.sqrt(sumSquares / samples.length);
+    });
+  }
+
   get isPlaying() { return this._audio && !this._audio.paused; }
 }
 
@@ -242,7 +290,7 @@ class TapeController {
     this._widget = SC.Widget(this._iframe);
     this._widget.bind(SC.Widget.Events.READY, () => {
       this._ready = true;
-      this._widget.setVolume(this._volume);
+      this._applyVolume('ready');
       if (this._pendingUrl) {
         this._loadAndPlay(this._pendingUrl, this._pendingPlay);
         this._pendingUrl = null;
@@ -252,6 +300,7 @@ class TapeController {
     });
     this._widget.bind(SC.Widget.Events.PLAY, () => {
       this._isPlaying = true;
+      this._applyVolume('play');
       clearTimeout(this._autoplayTimer);
       this._autoplayTimer = null;
       this.onPlay?.();
@@ -300,7 +349,6 @@ class TapeController {
     this._isPlaying = false;
     const autoplayAttempt = ++this._autoplayAttempt;
     clearTimeout(this._autoplayTimer);
-    // Widget.load() ile yeni parça yükle
     this._widget.load(scUrl, {
       auto_play: autoPlay,
       hide_related: true,
@@ -322,8 +370,6 @@ class TapeController {
       }
     });
     if (autoPlay) {
-      // Send play in the selection gesture too; mobile browsers may ignore delayed auto_play.
-      this._widget.play();
       this._autoplayTimer = setTimeout(() => {
         if (autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
           this.onAutoplayBlocked?.();
@@ -336,6 +382,8 @@ class TapeController {
     clearTimeout(this._autoplayTimer);
     this._autoplayTimer = null;
     this._widget?.play();
+    // play() başladıktan sonra sesi uygula
+    setTimeout(() => this._applyVolume('play-btn'), 200);
   }
   pause() { this._widget?.pause(); }
 
@@ -344,10 +392,38 @@ class TapeController {
     this._widget?.seekTo(Math.floor(seconds * 1000));
   }
 
+  _applyVolume(stage) {
+    if (!this._widget || !this._ready) return;
+    const requested = this._volume;
+    this._widget.setVolume(requested);
+    if (typeof this._widget.getVolume !== 'function') {
+      console.log(`[Tape volume] ${stage}: set ${requested}% (readback unavailable)`);
+      return;
+    }
+    console.log(`[Tape volume] ${stage}: requested=${requested}%`);
+    try {
+      this._widget.getVolume(actual => {
+        const value = Number(actual);
+        if (!Number.isFinite(value)) {
+          console.log(`[Tape volume] ${stage}: actual volume unavailable`);
+          return;
+        }
+        const observed = Math.round(value);
+        if (Math.abs(observed - requested) > 1) {
+          console.warn(`[Tape volume] ${stage}: mismatch requested=${requested}% actual=${observed}%`);
+        } else {
+          console.log(`[Tape volume] ${stage}: actual=${observed}%`);
+        }
+      });
+    } catch (error) {
+      console.warn(`[Tape volume] ${stage}: readback failed`, error);
+    }
+  }
+
   setVolume(v) {
     // v: 0–1 arası → widget 0–100 arası ister
     this._volume = Math.round(v * 100);
-    this._widget?.setVolume(this._volume);
+    this._applyVolume('volume-change');
   }
 
   getDuration()  { return this._currentDuration; }
@@ -365,7 +441,7 @@ class TapeController {
           simülasyon kullanılır. Düşük bantlar daha yüksek tutulur.
    ═══════════════════════════════════════════════════════ */
 const SPECTRUM_BARS = 48;
-const SPECTRUM_STYLES = ['mirror', 'equalizer', 'wave', 'classic', 'led', 'mono', 'fire'];
+const SPECTRUM_STYLES = ['mirror', 'equalizer', 'wave', 'classic', 'led', 'mono', 'fire', 'vfd', 'vu', 'crt', 'matrix'];
 
 class Spectrum {
   constructor(containerEl, audioEngine) {
@@ -379,6 +455,15 @@ class Spectrum {
     this._visualization = 'mirror';
     this._wavePhase = 0;
     this._wavePaths = [];
+    this._renderPhase = 0;
+    this._vuTheme = localStorage.getItem('kk_vu_theme') === 'ice' ? 'ice' : 'warm';
+    this._vuNeedles = [0, 0];
+    this._wrap = containerEl.closest('.spectrum-wrap');
+    this._vfdBands = Number(localStorage.getItem('kk_vfd_bands')) === 16 ? 16 : 24;
+    this._crtColor = localStorage.getItem('kk_crt_color') === 'amber' ? 'amber' : 'green';
+    this._matrixTheme = localStorage.getItem('kk_matrix_theme') === 'fire' ? 'fire' : 'cyber';
+    this._peakLevels = Array(SPECTRUM_BARS).fill(0);
+    this._peakTimes = Array(SPECTRUM_BARS).fill(0);
     this._speakerLightMode = 'rhythm';
     this._randomLight = 0.5;
     this._randomLightTarget = 0.5;
@@ -393,6 +478,10 @@ class Spectrum {
     const savedStyle = localStorage.getItem('kk_spectrum_style');
     const visualization = SPECTRUM_STYLES.includes(savedStyle) ? savedStyle : 'mirror';
     this.setVisualization(visualization);
+    this.setVuTheme(this._vuTheme);
+    this.setVfdBands(this._vfdBands);
+    this.setCrtColor(this._crtColor);
+    this.setMatrixTheme(this._matrixTheme);
     this.setSpeakerLightMode(localStorage.getItem('kk_speaker_light_mode') || 'rhythm');
     this._tick();
   }
@@ -426,6 +515,12 @@ class Spectrum {
       this._wavePaths.push(path);
     }
     this._container.appendChild(svg);
+
+    this._canvas = document.createElement('canvas');
+    this._canvas.className = 'spectrum-canvas';
+    this._canvas.setAttribute('aria-hidden', 'true');
+    this._canvasContext = this._canvas.getContext('2d');
+    this._container.appendChild(this._canvas);
   }
 
   setMode(mode) { this._mode = mode; }
@@ -436,9 +531,76 @@ class Spectrum {
     if (!SPECTRUM_STYLES.includes(style)) return;
     this._visualization = style;
     this._container.dataset.visualization = style;
+    this._wrap?.classList.toggle('is-vu-mode', style === 'vu');
+    const isModuleMode = ['vfd', 'vu', 'crt', 'matrix'].includes(style);
+    this._wrap?.classList.toggle('is-module-mode', isModuleMode);
+    if (this._wrap) this._wrap.dataset.visualization = style;
     localStorage.setItem('kk_spectrum_style', style);
     document.querySelectorAll('[data-spectrum-style]').forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.spectrumStyle === style));
+    });
+  }
+
+  setVuTheme(theme) {
+    if (theme !== 'warm' && theme !== 'ice') return;
+    this._vuTheme = theme;
+    localStorage.setItem('kk_vu_theme', theme);
+    document.querySelectorAll('[data-vu-theme]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.vuTheme === theme));
+    });
+  }
+
+  setVfdBands(bands) {
+    if (bands !== 16 && bands !== 24) return;
+    this._vfdBands = bands;
+    localStorage.setItem('kk_vfd_bands', String(bands));
+    document.querySelectorAll('[data-vfd-bands]').forEach(button => {
+      button.setAttribute('aria-pressed', String(Number(button.dataset.vfdBands) === bands));
+    });
+  }
+
+  setCrtColor(color) {
+    if (color !== 'green' && color !== 'amber') return;
+    this._crtColor = color;
+    localStorage.setItem('kk_crt_color', color);
+    document.querySelectorAll('[data-crt-color]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.crtColor === color));
+    });
+  }
+
+  setMatrixTheme(theme) {
+    if (theme !== 'cyber' && theme !== 'fire') return;
+    this._matrixTheme = theme;
+    localStorage.setItem('kk_matrix_theme', theme);
+    document.querySelectorAll('[data-matrix-theme]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.matrixTheme === theme));
+    });
+  }
+
+  setVfdBands(bands) {
+    if (bands !== 16 && bands !== 24) return;
+    this._vfdBands = bands;
+    localStorage.setItem('kk_vfd_bands', String(bands));
+    document.querySelectorAll('[data-vfd-bands]').forEach(button => {
+      button.setAttribute('aria-pressed', String(Number(button.dataset.vfdBands) === bands));
+    });
+  }
+
+  setCrtColor(color) {
+    if (color !== 'green' && color !== 'amber') return;
+    this._crtColor = color;
+    localStorage.setItem('kk_crt_color', color);
+    document.querySelectorAll('[data-crt-color]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.crtColor === color));
+    });
+  }
+
+  setMatrixTheme(theme) {
+    if (theme !== 'cyber' && theme !== 'fire') return;
+    this._matrixTheme = theme;
+    localStorage.setItem('kk_matrix_theme', theme);
+    document.querySelectorAll('[data-matrix-theme]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.matrixTheme === theme));
     });
   }
 
@@ -502,6 +664,16 @@ class Spectrum {
       levels = this._simCurrents;
     }
 
+    const now = performance.now();
+    levels.forEach((level, index) => {
+      if (level >= this._peakLevels[index]) {
+        this._peakLevels[index] = level;
+        this._peakTimes[index] = now;
+      } else if (now - this._peakTimes[index] > 650) {
+        this._peakLevels[index] = Math.max(level, this._peakLevels[index] - 0.012);
+      }
+    });
+
     // Çubukları güncelle
     let beatSum = 0;
     levels.forEach((lvl, i) => {
@@ -518,6 +690,9 @@ class Spectrum {
     });
 
     if (this._visualization === 'wave') this._updateWave(levels);
+    if (['vfd', 'vu', 'crt', 'matrix'].includes(this._visualization)) {
+      this._renderCanvas(levels);
+    }
 
     // Beat efekti (hoparlör LED'leri için CSS değişkeni)
     const beat = Math.min(1, (beatSum / 3) * 1.6);
@@ -545,6 +720,274 @@ class Spectrum {
         `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
       ).join(' '));
     });
+  }
+
+  _renderCanvas(levels) {
+    const rect = this._canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height || !this._canvasContext) return;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelWidth = Math.round(rect.width * pixelRatio);
+    const pixelHeight = Math.round(rect.height * pixelRatio);
+    if (this._canvas.width !== pixelWidth || this._canvas.height !== pixelHeight) {
+      this._canvas.width = pixelWidth;
+      this._canvas.height = pixelHeight;
+    }
+    const ctx = this._canvasContext;
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    const width = rect.width;
+    const height = rect.height;
+    this._renderPhase += 0.045;
+    if (this._visualization === 'vfd') this._drawVfd(ctx, width, height, levels);
+    if (this._visualization === 'vu') this._drawVu(ctx, width, height, levels);
+    if (this._visualization === 'crt') {
+      this._drawCrt(ctx, width, height, levels, this._mode === 'radio' ? this._audio.getWaveform() : null);
+    }
+    if (this._visualization === 'matrix') this._drawMatrix(ctx, width, height, levels);
+  }
+
+  _drawVfd(ctx, width, height, levels) {
+    ctx.fillStyle = '#05090c';
+    ctx.fillRect(0, 0, width, height);
+    const dbLabels = ['+6dB', '0dB', '-6dB', '-12dB', '-24dB'];
+    ctx.strokeStyle = 'rgba(0, 255, 157, 0.08)';
+    ctx.fillStyle = 'rgba(0, 255, 157, 0.55)';
+    ctx.font = '7px monospace';
+    for (let row = 0; row < dbLabels.length; row++) {
+      const y = height * 0.12 + row * (height * 0.76 / 4);
+      ctx.beginPath(); ctx.moveTo(31, y); ctx.lineTo(width - 5, y); ctx.stroke();
+      ctx.fillText(dbLabels[row], 2, y + 2.5);
+    }
+    const segments = 18;
+    const leftPad = 34;
+    const rightPad = 5;
+    const topPad = 6;
+    const bottomPad = 5;
+    const availableWidth = width - leftPad - rightPad;
+    const availableHeight = height - topPad - bottomPad;
+    const columnWidth = availableWidth / this._vfdBands;
+    const barWidth = Math.max(2, columnWidth * 0.72);
+    const segmentHeight = (availableHeight / segments) * 0.68;
+    const segmentGap = (availableHeight / segments) * 0.32;
+    for (let band = 0; band < this._vfdBands; band++) {
+      const index = Math.floor((band / this._vfdBands) * 47);
+      const value = levels[index] || 0;
+      const activeSegments = Math.round(value * segments);
+      const peakSegment = Math.min(segments - 1, Math.round((this._peakLevels[index] || 0) * segments));
+      const x = leftPad + band * columnWidth + (columnWidth - barWidth) / 2;
+      for (let segment = 0; segment < segments; segment++) {
+        const y = height - bottomPad - (segment + 1) * (segmentHeight + segmentGap);
+        const ratio = segment / segments;
+        const color = ratio >= 0.8 ? '#ff2a55' : ratio >= 0.6 ? '#ffbe0b' : '#00f59b';
+        const isLit = segment < activeSegments;
+        const isPeak = segment === peakSegment && this._peakLevels[index] > 0.04;
+        ctx.fillStyle = isLit || isPeak ? color : 'rgba(255,255,255,0.06)';
+        ctx.shadowColor = isLit || isPeak ? color : 'transparent';
+        ctx.shadowBlur = isPeak ? 5 : 2;
+        ctx.fillRect(x, y, barWidth, segmentHeight);
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  _drawVu(ctx, width, height, levels) {
+    ctx.fillStyle = '#090a0d';
+    ctx.fillRect(0, 0, width, height);
+    const gap = 8;
+    const meterWidth = (width - gap * 3) / 2;
+    const meterHeight = height - gap * 2;
+    const measuredLevels = this._mode === 'radio'
+      ? this._audio.getStereoLevels()
+      : [0, 1].map(channel => {
+        const slice = levels.filter((_, index) => index % 2 === channel);
+        return Math.sqrt(slice.reduce((sum, item) => sum + item, 0) / Math.max(1, slice.length));
+      });
+    const targets = measuredLevels.map(level => Math.min(1.06, Math.pow(level, 0.7) * 1.4));
+    this._vuNeedles = this._vuNeedles.map((current, index) => {
+      const target = targets[index] || 0;
+      return current + (target - current) * (target > current ? 0.42 : 0.14);
+    });
+    this._drawSingleVuMeter(ctx, gap, gap, meterWidth, meterHeight, this._vuNeedles[0], 'CH-L');
+    this._drawSingleVuMeter(ctx, gap * 2 + meterWidth, gap, meterWidth, meterHeight, this._vuNeedles[1], 'CH-R');
+  }
+
+  _drawSingleVuMeter(ctx, x, y, width, height, needleValue, channelLabel) {
+    const isWarm = this._vuTheme === 'warm';
+    const gradient = ctx.createRadialGradient(x + width / 2, y + height * 0.85, 10, x + width / 2, y + height * 0.5, width * 0.75);
+    if (isWarm) {
+      gradient.addColorStop(0, '#ffdf9e');
+      gradient.addColorStop(0.65, '#f4b446');
+      gradient.addColorStop(1, '#9e5b14');
+    } else {
+      gradient.addColorStop(0, '#d8f3ff');
+      gradient.addColorStop(0.65, '#68b5e8');
+      gradient.addColorStop(1, '#1c4973');
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, 6);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#0a0c0e';
+    ctx.stroke();
+    ctx.clip();
+
+    const pivotX = x + width / 2;
+    const pivotY = y + height * 1.18;
+    const radius = height * 0.92;
+    const startAngle = -Math.PI * 0.74;
+    const endAngle = -Math.PI * 0.26;
+    const zeroAngle = startAngle + (endAngle - startAngle) * 0.72;
+    ctx.beginPath();
+    ctx.arc(pivotX, pivotY, radius, startAngle, zeroAngle);
+    ctx.strokeStyle = '#18181b';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pivotX, pivotY, radius, zeroAngle, endAngle);
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    const ticks = [
+      { position: 0, label: '-20', red: false },
+      { position: 0.22, label: '-10', red: false },
+      { position: 0.4, label: '-7', red: false },
+      { position: 0.56, label: '-3', red: false },
+      { position: 0.72, label: '0', red: true },
+      { position: 0.86, label: '+1', red: true },
+      { position: 1, label: '+3', red: true }
+    ];
+    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ticks.forEach(tick => {
+      const angle = startAngle + (endAngle - startAngle) * tick.position;
+      const innerRadius = radius - 6;
+      const outerRadius = radius + 6;
+      const textRadius = radius + 15;
+      ctx.beginPath();
+      ctx.moveTo(pivotX + Math.cos(angle) * innerRadius, pivotY + Math.sin(angle) * innerRadius);
+      ctx.lineTo(pivotX + Math.cos(angle) * outerRadius, pivotY + Math.sin(angle) * outerRadius);
+      ctx.strokeStyle = tick.red ? '#dc2626' : '#18181b';
+      ctx.lineWidth = tick.label === '0' ? 2.2 : 1.4;
+      ctx.stroke();
+      ctx.fillStyle = tick.red ? '#b91c1c' : '#18181b';
+      ctx.fillText(tick.label, pivotX + Math.cos(angle) * textRadius, pivotY + Math.sin(angle) * textRadius);
+    });
+
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = 'rgba(24, 24, 27, 0.8)';
+    ctx.fillText('VU', pivotX, y + height * 0.58);
+    ctx.font = 'bold 10px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(24, 24, 27, 0.75)';
+    ctx.fillText(channelLabel, x + 24, y + height - 10);
+
+    const isPeak = needleValue > 0.78;
+    ctx.beginPath();
+    ctx.arc(x + width - 16, y + 16, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = isPeak ? '#ff1e42' : 'rgba(60, 20, 20, 0.45)';
+    if (isPeak) { ctx.shadowColor = '#ff1e42'; ctx.shadowBlur = 10; }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    const clampedNeedle = Math.max(0, Math.min(1.06, needleValue));
+    const needleAngle = startAngle + (endAngle - startAngle) * clampedNeedle;
+    const tipX = pivotX + Math.cos(needleAngle) * (radius + 9);
+    const tipY = pivotY + Math.sin(needleAngle) * (radius + 9);
+    ctx.beginPath();
+    ctx.moveTo(pivotX + 3, pivotY + 3);
+    ctx.lineTo(tipX + 3, tipY + 3);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pivotX, pivotY);
+    ctx.lineTo(tipX, tipY);
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pivotX, y + height, 18, Math.PI, 0);
+    ctx.fillStyle = '#141619';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawCrt(ctx, width, height, levels, waveform) {
+    const isGreen = this._crtColor === 'green';
+    const background = isGreen ? '#031208' : '#140c03';
+    const gridColor = isGreen ? 'rgba(51,255,102,0.14)' : 'rgba(255,176,32,0.14)';
+    const beamColor = isGreen ? '#4dff88' : '#ffb833';
+    const glowColor = isGreen ? 'rgba(51,255,102,0.85)' : 'rgba(255,176,32,0.85)';
+    ctx.fillStyle = background; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    for (let column = 1; column < 10; column++) {
+      const x = width * column / 10;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    }
+    for (let row = 1; row < 8; row++) {
+      const y = height * row / 8;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    }
+    const centerY = height / 2;
+    const centerX = width / 2;
+    ctx.strokeStyle = isGreen ? 'rgba(51,255,102,0.35)' : 'rgba(255,176,32,0.35)';
+    for (let x = 0; x < width; x += width / 50) {
+      ctx.beginPath(); ctx.moveTo(x, centerY - 2); ctx.lineTo(x, centerY + 2); ctx.stroke();
+    }
+    for (let y = 0; y < height; y += height / 40) {
+      ctx.beginPath(); ctx.moveTo(centerX - 2, y); ctx.lineTo(centerX + 2, y); ctx.stroke();
+    }
+    ctx.beginPath();
+    const samples = Math.max(48, Math.floor(width));
+    for (let index = 0; index <= samples; index++) {
+      const x = (index / samples) * width;
+      const dataIndex = waveform ? Math.floor((index / samples) * (waveform.length - 1)) : 0;
+      const signal = waveform
+        ? (waveform[dataIndex] - 128) / 128
+        : Math.sin(index * 0.16 + this._renderPhase) * (0.25 + (levels[index % levels.length] || 0) * 0.62)
+          + Math.sin(index * 0.047 - this._renderPhase * 0.7) * 0.12;
+      const y = centerY - signal * height * 0.42;
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.save();
+    ctx.strokeStyle = glowColor; ctx.lineWidth = 4.5; ctx.shadowColor = glowColor; ctx.shadowBlur = 12; ctx.stroke();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4; ctx.shadowBlur = 0; ctx.stroke();
+    ctx.restore();
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, width * 0.25, width / 2, height / 2, width * 0.65);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
+    ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
+  }
+
+  _drawMatrix(ctx, width, height, levels) {
+    ctx.fillStyle = '#06070a'; ctx.fillRect(0, 0, width, height);
+    const columns = 20; const rows = 12; const padX = 8; const padY = 5;
+    const dotWidth = (width - padX * 2) / columns;
+    const dotHeight = (height - padY * 2) / rows;
+    const dotRadius = Math.max(1.5, Math.min(dotWidth, dotHeight) * 0.34);
+    const isCyber = this._matrixTheme === 'cyber';
+    for (let column = 0; column < columns; column++) {
+      const index = Math.floor((column / columns) * 47);
+      const value = levels[index] || 0;
+      const litRows = Math.round(value * rows);
+      for (let row = 0; row < rows; row++) {
+        const lit = row >= rows - litRows;
+        const peakRow = rows - 1 - Math.round((this._peakLevels[index] || 0) * (rows - 1));
+        const isPeak = row === peakRow && this._peakLevels[index] > 0.04;
+        const x = padX + column * dotWidth + dotWidth / 2;
+        const y = height - padY - row * dotHeight - dotHeight / 2;
+        const activeColor = isPeak ? '#f8fafc' : isCyber
+          ? (row > 9 ? '#a5f3fc' : '#22d3ee')
+          : (row > 9 ? '#fef08a' : row > 5 ? '#fb923c' : '#ef4444');
+        ctx.fillStyle = lit || isPeak ? activeColor : (isCyber ? 'rgba(30,58,138,0.32)' : 'rgba(127,29,29,0.32)');
+        ctx.shadowColor = lit || isPeak ? activeColor : 'transparent'; ctx.shadowBlur = lit || isPeak ? 4 : 0;
+        ctx.beginPath();
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.shadowBlur = 0;
   }
 
   destroy() { cancelAnimationFrame(this._animFrame); }
@@ -628,11 +1071,22 @@ class UI {
     this._FM_MIN = 88;
     this._FM_MAX = 108;
     this._currentFreq = 91.4;
+    this._tapeDisplayActive = false;
 
     // Knob drag durumları
     this._tuningDrag = null;
     this._volumeDrag = null;
     this._signalTimer = null;
+    this._counterDrums = {
+      m1: document.getElementById('drum-m1'),
+      m2: document.getElementById('drum-m2'),
+      s1: document.getElementById('drum-s1'),
+      s2: document.getElementById('drum-s2')
+    };
+    this._counterPreviousDigits = null;
+    this._counterRollTimers = new Map();
+    this._buildTapeCounter();
+    this._buildProgressPixels();
 
     // Cetvel tiklerini oluştur
     this._buildRulerTicks();
@@ -647,6 +1101,8 @@ class UI {
     this._bindKeyboard();
     this._bindRequestBoard();
     this._bindTapeCollection();
+    this._bindCassetteShelf();
+    this._bindCassetteCreator();
     this._bindRadioCollection();
     this._bindRoomLightSwitch();
     this._bindLegalDialogs();
@@ -657,19 +1113,25 @@ class UI {
       const button = event.target.closest('[data-spectrum-style]');
       if (button) this._app._spectrum.setVisualization(button.dataset.spectrumStyle);
     });
+    document.querySelector('.vu-meter-themes')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-vu-theme]');
+      if (button) this._app._spectrum.setVuTheme(button.dataset.vuTheme);
+    });
+    document.querySelector('.vfd-band-controls')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-vfd-bands]');
+      if (button) this._app._spectrum.setVfdBands(Number(button.dataset.vfdBands));
+    });
+    document.querySelector('.crt-color-controls')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-crt-color]');
+      if (button) this._app._spectrum.setCrtColor(button.dataset.crtColor);
+    });
+    document.querySelector('.matrix-theme-controls')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-matrix-theme]');
+      if (button) this._app._spectrum.setMatrixTheme(button.dataset.matrixTheme);
+    });
     document.getElementById('speaker-light-toggle')?.addEventListener('click', () => {
       this._app._spectrum.toggleSpeakerLightMode();
     });
-    document.getElementById('tape-category-filter')?.addEventListener('change', event => {
-      this._app.setTapeCategory(event.currentTarget.value);
-    });
-    document.getElementById('tape-choice')?.addEventListener('change', event => {
-      const tapeIndex = Number(event.currentTarget.value);
-      if (Number.isInteger(tapeIndex) && tapeIndex >= 0) {
-        this._app.switchToTapeBySelector(tapeIndex);
-      }
-    });
-
     // Ses seviyesini uygula
     this._setVolumeDisplay(this._volume);
     this._updateFMDisplay();
@@ -677,7 +1139,7 @@ class UI {
     this._updateSpectrumTrack('FM Stereo');
     const frequencyDisplay = document.getElementById('radio-freq');
     if (frequencyDisplay && 'ResizeObserver' in window) {
-      this._frequencyResizeObserver = new ResizeObserver(() => this._renderDigitalFrequency(this._currentFreq));
+      this._frequencyResizeObserver = new ResizeObserver(() => this._renderDigitalFrequency(this._tapeDisplayActive ? 'TAPE' : this._currentFreq));
       this._frequencyResizeObserver.observe(frequencyDisplay);
     }
   }
@@ -759,6 +1221,433 @@ class UI {
       } catch (error) {
         status.textContent = `İstek gönderilemedi: ${error.message}`;
         status.classList.add('is-error');
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  }
+
+  _bindCassetteCreator() {
+    const dialog = document.getElementById('cassette-builder-dialog');
+    const openButtons = Array.from(document.querySelectorAll('[data-open-cassette-builder]'));
+    const hideRobotButtons = Array.from(document.querySelectorAll('[data-hide-cassette-robot]'));
+    const showRobotButtons = Array.from(document.querySelectorAll('[data-show-cassette-robot]'));
+    const closeButton = document.getElementById('close-cassette-builder');
+    const createForm = document.getElementById('custom-cassette-form');
+    const lookupForm = document.getElementById('custom-cassette-lookup-form');
+    const builderTitle = document.getElementById('cassette-builder-title');
+    const labelInput = document.getElementById('custom-cassette-label');
+    const colorInput = document.getElementById('custom-cassette-color');
+    const createEmailInput = document.getElementById('custom-cassette-email');
+    const lookupEmailInput = document.getElementById('custom-cassette-lookup-email');
+    const search = document.getElementById('custom-cassette-search');
+    const trackOptions = document.getElementById('custom-cassette-track-options');
+    const radioSearch = document.getElementById('custom-cassette-radio-search');
+    const radioCountry = document.getElementById('custom-cassette-radio-country');
+    const radioSearchButton = document.getElementById('custom-cassette-radio-search-button');
+    const radioStatus = document.getElementById('custom-cassette-radio-status');
+    const radioResults = document.getElementById('custom-cassette-radio-results');
+    const selectionCount = document.getElementById('custom-cassette-selection-count');
+    const saveButton = document.getElementById('custom-cassette-save');
+    const createStatus = document.getElementById('custom-cassette-create-status');
+    const lookupStatus = document.getElementById('custom-cassette-lookup-status');
+    const savedList = document.getElementById('custom-cassette-saved-list');
+    const createPanel = document.getElementById('cassette-create-panel');
+    const retrievePanel = document.getElementById('cassette-retrieve-panel');
+    const tabButtons = Array.from(document.querySelectorAll('[data-cassette-view]'));
+    const robotHiddenKey = 'karisikKasetRobotHidden';
+    let robotStartsHidden = false;
+    try {
+      robotStartsHidden = window.localStorage.getItem(robotHiddenKey) === '1';
+    } catch { /* Yerel depolama kapalıysa robot varsayılan olarak görünür kalır. */ }
+    document.body.classList.toggle('cassette-robot-is-hidden', robotStartsHidden);
+    const setRobotHidden = hidden => {
+      document.body.classList.toggle('cassette-robot-is-hidden', hidden);
+      try {
+        window.localStorage.setItem(robotHiddenKey, hidden ? '1' : '0');
+      } catch { /* Depolama kapalı olsa da bu oturumdaki görünüm güncellenir. */ }
+    };
+    hideRobotButtons.forEach(button => button.addEventListener('click', () => {
+      setRobotHidden(true);
+      showToast('Robot gizlendi. Kaset simgesine dokunarak yeniden gösterebilirsin.');
+    }));
+    showRobotButtons.forEach(button => button.addEventListener('click', () => {
+      setRobotHidden(false);
+      showToast('Kaset robotu yeniden gösterildi.');
+    }));
+    if (!dialog || !openButtons.length || !closeButton || !createForm || !lookupForm || !search || !trackOptions) return;
+
+    const MAX_TRACKS = 20;
+    const selectedUrls = new Set();
+    const selectedRadioStations = new Map();
+    let catalog = [];
+    let radioCatalog = [];
+    let editingTapeId = null;
+
+    const setStatus = (element, message, isError = false) => {
+      if (!element) return;
+      element.textContent = message;
+      element.classList.toggle('is-error', isError);
+    };
+
+    const setView = view => {
+      const showCreate = view === 'create';
+      if (createPanel) createPanel.hidden = !showCreate;
+      if (retrievePanel) retrievePanel.hidden = showCreate;
+      tabButtons.forEach(button => {
+        const active = button.dataset.cassetteView === view;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+      });
+    };
+
+    const setEditMode = tape => {
+      editingTapeId = tape?.id || null;
+      if (builderTitle) builderTitle.textContent = editingTapeId ? 'Kasetini düzenle' : 'Kendi kasetini hazırla';
+      if (saveButton) saveButton.textContent = editingTapeId ? 'Değişiklikleri kaydet' : 'Kaseti oluştur ve rafa ekle';
+    };
+
+    const updateSelection = () => {
+      const totalSelected = selectedUrls.size + selectedRadioStations.size;
+      if (selectionCount) selectionCount.textContent = `${totalSelected} / ${MAX_TRACKS} parça`;
+      if (saveButton) saveButton.disabled = totalSelected < 1 || totalSelected > MAX_TRACKS;
+    };
+
+    const buildCatalog = () => {
+      const uniqueTracks = new Map();
+      (this._app._tapes || []).filter(tape => !tape.isCustom).forEach(tape => {
+        (tape.tracks || []).forEach(track => {
+          if (!track.soundcloudUrl || uniqueTracks.has(track.soundcloudUrl)) return;
+          uniqueTracks.set(track.soundcloudUrl, {
+            title: track.title || 'İsimsiz parça',
+            subtitle: track.subtitle || '',
+            soundcloudUrl: track.soundcloudUrl,
+            tapeLabel: tape.label || 'Kaset koleksiyonu',
+          });
+        });
+      });
+      catalog = [...uniqueTracks.values()].sort((left, right) =>
+        left.title.localeCompare(right.title, 'tr', { sensitivity: 'base' })
+      );
+    };
+
+    const renderTracks = () => {
+      const query = search.value.trim().toLocaleLowerCase('tr');
+      const matches = catalog.filter(track =>
+        `${track.title} ${track.subtitle} ${track.tapeLabel}`.toLocaleLowerCase('tr').includes(query)
+      );
+      trackOptions.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement('p');
+        empty.className = 'cassette-track-empty';
+        empty.textContent = catalog.length ? 'Bu aramayla eşleşen parça bulunamadı.' : 'Şarkı listesi yüklenemedi.';
+        trackOptions.appendChild(empty);
+      } else {
+        matches.forEach(track => {
+          const option = document.createElement('label');
+          option.className = 'cassette-track-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = track.soundcloudUrl;
+          checkbox.checked = selectedUrls.has(track.soundcloudUrl);
+          checkbox.disabled = !checkbox.checked && selectedUrls.size >= MAX_TRACKS;
+          const details = document.createElement('span');
+          details.className = 'cassette-track-option-info';
+          const title = document.createElement('span');
+          title.className = 'cassette-track-option-title';
+          title.textContent = track.title;
+          const artist = document.createElement('span');
+          artist.className = 'cassette-track-option-artist';
+          artist.textContent = track.subtitle || track.tapeLabel;
+          details.append(title, artist);
+          option.append(checkbox, details);
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) selectedUrls.add(track.soundcloudUrl);
+            else selectedUrls.delete(track.soundcloudUrl);
+            updateSelection();
+            renderTracks();
+            renderRadioStations();
+          });
+          trackOptions.appendChild(option);
+        });
+      }
+      updateSelection();
+    };
+
+    const renderRadioStations = () => {
+      if (!radioResults) return;
+      radioResults.replaceChildren();
+      radioCatalog.forEach(station => {
+        const key = station.streamUrl;
+        const option = document.createElement('label');
+        option.className = 'cassette-track-option';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = selectedRadioStations.has(key);
+        checkbox.disabled = !checkbox.checked && selectedUrls.size + selectedRadioStations.size >= MAX_TRACKS;
+        const details = document.createElement('span');
+        details.className = 'cassette-track-option-info';
+        const title = document.createElement('span');
+        title.className = 'cassette-track-option-title';
+        title.textContent = station.name || 'İsimsiz radyo';
+        const subtitle = document.createElement('span');
+        subtitle.className = 'cassette-track-option-artist';
+        subtitle.textContent = `${station.genre || 'Radyo'} · ${station._frequency?.toFixed(1) || 'otomatik'} MHz`;
+        details.append(title, subtitle);
+        option.append(checkbox, details);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) selectedRadioStations.set(key, station);
+          else selectedRadioStations.delete(key);
+          updateSelection();
+          renderTracks();
+          renderRadioStations();
+        });
+        radioResults.appendChild(option);
+      });
+      updateSelection();
+    };
+
+    const searchRadioStations = async () => {
+      const query = radioSearch?.value.trim() || '';
+      const country = radioCountry?.value.trim().toUpperCase() || '';
+      if (!query && !country) {
+        setStatus(radioStatus, 'İstasyon adı veya ülke kodu gir.', true);
+        return;
+      }
+      radioSearchButton.disabled = true;
+      setStatus(radioStatus, 'Radyo istasyonları aranıyor…');
+      try {
+        const params = new URLSearchParams({ limit: '30' });
+        if (query) params.set('q', query);
+        if (country) params.set('country', country);
+        const response = await fetch(`/api/admin/search-radio?${params}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        radioCatalog = (result.stations || []).map((station, index) => ({
+          ...station,
+          _frequency: Number.isFinite(Number(station.frequency)) ? Number(station.frequency) : 88 + index / 10,
+        }));
+        setStatus(radioStatus, radioCatalog.length ? `${radioCatalog.length} istasyon bulundu.` : 'İstasyon bulunamadı.');
+        renderRadioStations();
+      } catch (error) {
+        setStatus(radioStatus, `Radyo araması başarısız: ${error.message}`, true);
+      } finally {
+        radioSearchButton.disabled = false;
+      }
+    };
+
+    const renderSavedCassettes = cassettes => {
+      savedList.replaceChildren();
+      cassettes.forEach(tape => {
+        const card = document.createElement('article');
+        card.className = 'cassette-saved-card';
+        const details = document.createElement('div');
+        const title = document.createElement('h3');
+        title.textContent = tape.label;
+        const meta = document.createElement('p');
+        meta.textContent = `${tape.tracks.length} parça · Kişisel kaset`;
+        details.append(title, meta);
+        const useButton = document.createElement('button');
+        useButton.type = 'button';
+        useButton.className = 'cassette-saved-use';
+        useButton.textContent = 'Rafa ekle ve dinle';
+        useButton.addEventListener('click', () => {
+          const tapeIndex = this._app._tapes.findIndex(item => item.id === tape.id);
+          if (tapeIndex < 0) return;
+          dialog.close();
+          this._app.switchToTapeBySelector(tapeIndex);
+        });
+        const actions = document.createElement('div');
+        actions.className = 'cassette-saved-actions';
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'cassette-saved-edit';
+        editButton.textContent = 'Düzenle';
+        editButton.addEventListener('click', () => {
+          createForm.reset();
+          selectedUrls.clear();
+          selectedRadioStations.clear();
+          buildCatalog();
+          const knownUrls = new Set(catalog.map(track => track.soundcloudUrl));
+          (tape.tracks || []).forEach(track => {
+            if (track.type === 'radio' && track.streamUrl) {
+              const station = { name: track.title, genre: track.subtitle, streamUrl: track.streamUrl, _frequency: Number(track.frequency) || 88 };
+              selectedRadioStations.set(track.streamUrl, station);
+              if (!radioCatalog.some(item => item.streamUrl === track.streamUrl)) radioCatalog.push(station);
+              return;
+            }
+            if (!track.soundcloudUrl) return;
+            selectedUrls.add(track.soundcloudUrl);
+            if (!knownUrls.has(track.soundcloudUrl)) {
+              catalog.push({
+                title: track.title || 'İsimsiz parça',
+                subtitle: track.subtitle || '',
+                soundcloudUrl: track.soundcloudUrl,
+                tapeLabel: `${tape.label} · mevcut parça`,
+              });
+            }
+          });
+          if (labelInput) labelInput.value = tape.label || '';
+          if (colorInput) colorInput.value = tape.color || '#d59333';
+          if (createEmailInput) createEmailInput.value = lookupEmailInput?.value.trim() || '';
+          search.value = '';
+          setEditMode(tape);
+          renderTracks();
+          renderRadioStations();
+          setView('create');
+          setStatus(createStatus, 'Kaset bilgilerini veya parça listesini düzenleyebilirsin.');
+          setStatus(lookupStatus, '');
+        });
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'cassette-saved-delete';
+        deleteButton.textContent = 'Sil';
+        deleteButton.addEventListener('click', async () => {
+          const email = lookupEmailInput?.value.trim() || '';
+          if (!email) {
+            setStatus(lookupStatus, 'Kaseti silmek için önce e-posta adresinle kasetlerini bul.', true);
+            return;
+          }
+          if (!window.confirm(`“${tape.label}” kasetini kalıcı olarak silmek istiyor musun?`)) return;
+          deleteButton.disabled = true;
+          setStatus(lookupStatus, 'Kaset siliniyor…');
+          try {
+            const response = await fetch(`/api/custom-cassettes/${encodeURIComponent(tape.id)}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ email }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+            const remaining = this._app._tapes.filter(item => item.isCustom && item.id !== tape.id);
+            this._app.setCustomCassettes(remaining);
+            renderSavedCassettes(remaining);
+            setStatus(lookupStatus, 'Kaset silindi.');
+            showToast('Kişisel kaset silindi.');
+          } catch (error) {
+            setStatus(lookupStatus, `Kaset silinemedi: ${error.message}`, true);
+            deleteButton.disabled = false;
+          }
+        });
+        actions.append(useButton, editButton, deleteButton);
+        card.append(details, actions);
+        savedList.appendChild(card);
+      });
+    };
+
+    openButtons.forEach(button => button.addEventListener('click', () => {
+      createForm.reset();
+      selectedUrls.clear();
+      selectedRadioStations.clear();
+      radioCatalog = [];
+      radioResults?.replaceChildren();
+      setStatus(radioStatus, '');
+      search.value = '';
+      setEditMode(null);
+      buildCatalog();
+      renderTracks();
+      renderRadioStations();
+      setView('create');
+      setStatus(createStatus, '');
+      setStatus(lookupStatus, '');
+      if (!dialog.open) dialog.showModal();
+    }));
+    closeButton.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+    tabButtons.forEach(button => button.addEventListener('click', () => setView(button.dataset.cassetteView)));
+    search.addEventListener('input', renderTracks);
+    radioSearchButton?.addEventListener('click', searchRadioStations);
+    radioSearch?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); searchRadioStations(); }
+    });
+
+    createForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!createForm.reportValidity()) return;
+      if (!selectedUrls.size && !selectedRadioStations.size) {
+        setStatus(createStatus, 'Kasete eklemek için en az bir şarkı veya radyo kanalı seç.', true);
+        return;
+      }
+      const isEditing = Boolean(editingTapeId);
+      const submitButton = saveButton || createForm.querySelector('[type="submit"]');
+      submitButton.disabled = true;
+      setStatus(createStatus, isEditing ? 'Değişiklikler kaydediliyor…' : 'Kaset hazırlanıyor…');
+      const payload = {
+        label: document.getElementById('custom-cassette-label')?.value.trim() || '',
+        color: document.getElementById('custom-cassette-color')?.value || '#d59333',
+        email: document.getElementById('custom-cassette-email')?.value.trim() || '',
+        trackUrls: [...selectedUrls],
+        radioStations: [...selectedRadioStations.values()].map(station => ({
+          name: station.name,
+          genre: station.genre,
+          streamUrl: station.streamUrl,
+          frequency: station._frequency,
+        })),
+      };
+      try {
+        const endpoint = isEditing
+          ? `/api/custom-cassettes/${encodeURIComponent(editingTapeId)}`
+          : '/api/custom-cassettes';
+        const response = await fetch(endpoint, {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        if (isEditing) {
+          const otherLoadedTapes = this._app._tapes.filter(item => item.isCustom && item.id !== result.tape.id);
+          this._app.setCustomCassettes([...otherLoadedTapes, result.tape], result.tape.id, false);
+        } else {
+          this._app.setCustomCassettes([result.tape], result.tape.id, false);
+        }
+        createForm.reset();
+        selectedUrls.clear();
+        selectedRadioStations.clear();
+        radioCatalog = [];
+        radioResults?.replaceChildren();
+        setStatus(radioStatus, '');
+        setEditMode(null);
+        renderTracks();
+        dialog.close();
+        showToast(isEditing ? 'Kaset güncellendi.' : 'Kasetin rafa eklendi. Dinlemek için PLAY düğmesine bas.');
+      } catch (error) {
+        setStatus(createStatus, `${isEditing ? 'Kaset güncellenemedi' : 'Kaset oluşturulamadı'}: ${error.message}`, true);
+      } finally {
+        submitButton.disabled = selectedUrls.size + selectedRadioStations.size === 0;
+      }
+    });
+
+    lookupForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!lookupForm.reportValidity()) return;
+      const submitButton = lookupForm.querySelector('[type="submit"]');
+      submitButton.disabled = true;
+      savedList.replaceChildren();
+      setStatus(lookupStatus, 'Kasetlerin aranıyor…');
+      try {
+        const email = document.getElementById('custom-cassette-lookup-email')?.value.trim() || '';
+        const response = await fetch('/api/custom-cassettes/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ email }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        const cassettes = Array.isArray(result.cassettes) ? result.cassettes : [];
+        this._app.setCustomCassettes(cassettes);
+        renderSavedCassettes(cassettes);
+        setStatus(lookupStatus, cassettes.length
+          ? `${cassettes.length} kaset bulundu. Dinlemek istediğini seç.`
+          : 'Bu e-posta adresiyle eşleşen kaset bulunamadı.', !cassettes.length);
+      } catch (error) {
+        setStatus(lookupStatus, `Kasetler getirilemedi: ${error.message}`, true);
       } finally {
         submitButton.disabled = false;
       }
@@ -851,6 +1740,27 @@ class UI {
     });
   }
 
+  _bindCassetteShelf() {
+    const shelf = document.querySelector('.cassette-rack-svg');
+    if (!shelf) return;
+    const selectCassette = cassette => {
+      if (cassette.getAttribute('aria-disabled') === 'true') return;
+      const tapeIndex = this._app._tapes.findIndex(tape => tape.id === cassette.dataset.tape);
+      if (tapeIndex >= 0) this._app.switchToTapeBySelector(tapeIndex);
+    };
+    shelf.addEventListener('click', event => {
+      const cassette = event.target.closest('.svg-tape');
+      if (cassette) selectCassette(cassette);
+    });
+    shelf.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const cassette = event.target.closest('.svg-tape');
+      if (!cassette) return;
+      event.preventDefault();
+      selectCassette(cassette);
+    });
+  }
+
   _bindRadioCollection() {
     const dialog = document.getElementById('radio-collection-dialog');
     const list = document.getElementById('radio-collection-list');
@@ -904,9 +1814,10 @@ class UI {
         genre.textContent = station.genre || 'Tür belirtilmemiş';
         const health = this._app._stationHealth.get(station.streamUrl);
         const healthBadge = document.createElement('span');
+        const customStatus = station.isCustom && !health;
         healthBadge.className = `station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}`;
-        healthBadge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST';
-        healthBadge.title = health?.message || 'İstasyon bağlantı kontrolü bekleniyor.';
+        healthBadge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : customStatus ? 'KİŞİSEL' : 'TEST';
+        healthBadge.title = health?.message || (customStatus ? 'Kişisel kaset kanalına bağlı istasyon.' : 'İstasyon bağlantı kontrolü bekleniyor.');
         info.append(frequency, name, genre, healthBadge);
 
         const actions = document.createElement('div');
@@ -1003,9 +1914,23 @@ class UI {
       const label = isFullscreen ? 'Tam ekrandan çık' : 'Tam ekranı aç';
       fullscreenButton?.setAttribute('aria-label', label);
       if (fullscreenButton) fullscreenButton.title = label;
+      document.querySelectorAll('[data-mirror-switch="fullscreen-switch"]').forEach(mirror => {
+        mirror.textContent = isFullscreen ? 'Tam ekrandan çık' : 'Tam ekran';
+        mirror.setAttribute('aria-label', label);
+      });
     });
 
     powerButton?.addEventListener('click', () => this._app.togglePower());
+
+    /* Duvar anahtarı dar ekranlarda gizlendiği için aynı işlevler
+       alt bilgi çubuğundaki kısayol düğmelerinden tetiklenir. */
+    document.querySelectorAll('[data-mirror-switch]').forEach(mirror => {
+      const target = document.getElementById(mirror.dataset.mirrorSwitch);
+      if (!target) return;
+      mirror.addEventListener('click', () => {
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      });
+    });
   }
 
   _bindLegalDialogs() {
@@ -1181,7 +2106,7 @@ class UI {
   /* ─── FM Display güncelle ─── */
   _updateFMDisplay(station = null) {
     const freq = this._currentFreq;
-    this._renderDigitalFrequency(freq);
+    this._renderDigitalFrequency(this._tapeDisplayActive ? 'TAPE' : freq);
 
     // Cetvel iğnesi
     const needle = document.getElementById('ruler-needle');
@@ -1202,6 +2127,12 @@ class UI {
     const timeDisplay = document.getElementById('radio-time');
     if (!dateDisplay || !timeDisplay) return;
     const now = new Date();
+    const seconds = now.getSeconds();
+    const minutes = now.getMinutes();
+    const hours = now.getHours() % 12;
+    document.querySelector('.wall-clock-hour')?.style.setProperty('transform', `rotate(${hours * 30 + minutes * 0.5}deg)`);
+    document.querySelector('.wall-clock-minute')?.style.setProperty('transform', `rotate(${minutes * 6 + seconds * 0.1}deg)`);
+    document.querySelector('.wall-clock-second')?.style.setProperty('transform', `rotate(${seconds * 6}deg)`);
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
@@ -1238,6 +2169,10 @@ class UI {
       powerSwitch.setAttribute('aria-label', label);
       powerSwitch.title = label;
     }
+    document.querySelectorAll('[data-mirror-switch="player-power-switch"]').forEach(mirror => {
+      mirror.textContent = powered ? 'Güç' : 'Güç aç';
+      mirror.setAttribute('aria-label', powered ? 'Player elektriğini kes' : 'Player elektriğini aç');
+    });
   }
 
   _renderDigitalText(display, value) {
@@ -1291,26 +2226,33 @@ class UI {
       '6': 'afgecd',
       '7': 'abc',
       '8': 'abcdefg',
-      '9': 'abfgcd'
+      '9': 'abfgcd',
+      A: 'abcefg',
+      E: 'adefg',
+      P: 'abefg',
+      T: 'defg'
     };
-    const value = freq.toFixed(1);
+    const isText = typeof freq === 'string';
+    const value = isText ? freq : freq.toFixed(1);
     display.replaceChildren();
-    display.setAttribute('aria-label', `${value} MHz`);
-    const ghostCount = Math.max(3, Math.floor((display.clientWidth - 136) / 32));
-    const ghosts = document.createElement('span');
-    ghosts.className = 'freq-ghosts';
-    ghosts.setAttribute('aria-hidden', 'true');
-    for (let i = 0; i < ghostCount; i++) {
-      const ghostDigit = document.createElement('span');
-      ghostDigit.className = 'freq-digit freq-ghost-digit';
-      for (const segment of 'abcdefg') {
-        const element = document.createElement('i');
-        element.className = `freq-segment segment-${segment}`;
-        ghostDigit.appendChild(element);
+    display.setAttribute('aria-label', isText ? value : `${value} MHz`);
+    if (!isText) {
+      const ghostCount = Math.max(3, Math.floor((display.clientWidth - 136) / 32));
+      const ghosts = document.createElement('span');
+      ghosts.className = 'freq-ghosts';
+      ghosts.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < ghostCount; i++) {
+        const ghostDigit = document.createElement('span');
+        ghostDigit.className = 'freq-digit freq-ghost-digit';
+        for (const segment of 'abcdefg') {
+          const element = document.createElement('i');
+          element.className = `freq-segment segment-${segment}`;
+          ghostDigit.appendChild(element);
+        }
+        ghosts.appendChild(ghostDigit);
       }
-      ghosts.appendChild(ghostDigit);
+      display.appendChild(ghosts);
     }
-    display.appendChild(ghosts);
     for (const character of value) {
       if (character === '.') {
         const decimal = document.createElement('span');
@@ -1452,6 +2394,10 @@ class UI {
 
   /* ─── Kaset durum UI ─── */
   updateTapeStatus(isPlaying, track = null) {
+    this._tapeDisplayActive = isPlaying;
+    const deckBrandMode = document.getElementById('deck-brand-mode');
+    if (deckBrandMode) deckBrandMode.textContent = isPlaying ? 'TAPE' : 'STEREO FM RADIO';
+    this._renderDigitalFrequency(isPlaying ? 'TAPE' : this._currentFreq);
     const dot  = document.getElementById('tape-dot');
     const text = document.getElementById('tape-status-text');
     if (isPlaying) {
@@ -1464,7 +2410,6 @@ class UI {
     if (track) {
       document.querySelector('.cassette-title').textContent = track.subtitle || 'GUESS THE SONG';
       document.getElementById('tape-label').textContent = track.title || 'Karışık Kaset';
-      document.getElementById('tape-track-artist').textContent = track.subtitle || '';
     }
     // Makara animasyonu
     ['reel-left','reel-right'].forEach(id => {
@@ -1487,12 +2432,74 @@ class UI {
   }
 
   /* ─── Sayaç ve ilerleme çubuğu ─── */
+  _buildTapeCounter() {
+    Object.values(this._counterDrums).forEach(strip => {
+      if (!strip) return;
+      strip.replaceChildren();
+      for (let digit = 0; digit <= 10; digit++) {
+        const drumDigit = document.createElement('span');
+        drumDigit.className = 'drum-digit';
+        drumDigit.textContent = String(digit % 10);
+        strip.appendChild(drumDigit);
+      }
+    });
+    this._setTapeCounter(0, true);
+  }
+
+  _buildProgressPixels() {
+    const track = document.getElementById('progress-pixels');
+    if (!track) return;
+    track.replaceChildren();
+    for (let index = 0; index < 32; index++) {
+      const pixel = document.createElement('span');
+      pixel.className = 'progress-pixel';
+      track.appendChild(pixel);
+    }
+  }
+
+  _setTapeCounter(seconds, instant = false) {
+    const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    const minutes = Math.floor(totalSeconds / 60) % 100;
+    const remainder = totalSeconds % 60;
+    const digits = {
+      m1: Math.floor(minutes / 10),
+      m2: minutes % 10,
+      s1: Math.floor(remainder / 10),
+      s2: remainder % 10
+    };
+
+    Object.entries(digits).forEach(([key, digit]) => {
+      const strip = this._counterDrums[key];
+      if (!strip) return;
+      const resetTimer = this._counterRollTimers.get(key);
+      if (resetTimer) clearTimeout(resetTimer);
+      const previousDigit = this._counterPreviousDigits?.[key];
+      if (instant || previousDigit == null) {
+        strip.style.transition = 'none';
+        strip.style.transform = `translateY(-${digit * 38}px)`;
+      } else {
+        strip.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)';
+        if (previousDigit === 9 && digit === 0) {
+          strip.style.transform = 'translateY(-380px)';
+          this._counterRollTimers.set(key, setTimeout(() => {
+            strip.style.transition = 'none';
+            strip.style.transform = 'translateY(0px)';
+            this._counterRollTimers.delete(key);
+          }, 360));
+        } else {
+          strip.style.transform = `translateY(-${digit * 38}px)`;
+        }
+      }
+    });
+    this._counterPreviousDigits = digits;
+  }
+
   updateTapeProgress(position, duration) {
-    // Dijital sayaç
-    const digits = document.querySelectorAll('.cdigit');
-    const formatted = formatTime(position);
-    const parts = formatted.replace(':', '').split('');
-    digits.forEach((d, i) => { d.textContent = parts[i] || '0'; });
+    this._setTapeCounter(position);
+    const percent = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+    const pixels = document.querySelectorAll('.progress-pixel');
+    const litPixels = Math.round((percent / 100) * pixels.length);
+    pixels.forEach((pixel, index) => pixel.classList.toggle('is-lit', index < litPixels));
 
     // Kalan süre
     const remaining = duration > 0 ? Math.max(0, duration - position) : 0;
@@ -1508,7 +2515,8 @@ class UI {
   }
 
   resetTapeCounter() {
-    document.querySelectorAll('.cdigit').forEach(d => d.textContent = '0');
+    this._setTapeCounter(0, true);
+    document.querySelectorAll('.progress-pixel').forEach(pixel => pixel.classList.remove('is-lit'));
     const remEl = document.getElementById('progress-remaining');
     if (remEl) remEl.textContent = '-00:00';
     const fill = document.getElementById('progress-fill');
@@ -1518,32 +2526,36 @@ class UI {
   /* ─── Play/Pause/Stop düğmeleri ─── */
   setPlayState(isPlaying) {
     const btn  = document.getElementById('btn-play');
-    const dot  = document.getElementById('play-dot');
-    const icoP = document.getElementById('icon-play');
-    const icoU = document.getElementById('icon-pause');
     const btnStop = document.getElementById('btn-stop');
 
+    btn?.classList.toggle('is-latched', isPlaying);
     if (isPlaying) {
       btn?.setAttribute('aria-pressed', 'true');
-      dot?.classList.add('active');
-      icoP?.classList.add('hidden');
-      icoU?.classList.remove('hidden');
       btnStop?.setAttribute('aria-pressed', 'false');
     } else {
       btn?.setAttribute('aria-pressed', 'false');
-      dot?.classList.remove('active');
-      icoP?.classList.remove('hidden');
-      icoU?.classList.add('hidden');
-      btnStop?.setAttribute('aria-pressed', 'true');
+      btnStop?.setAttribute('aria-pressed', 'false');
     }
   }
 
   /* ─── Transport butonları ─── */
   _bindTransport() {
-    document.getElementById('btn-play')?.addEventListener('click', () => this._app.togglePlay());
-    document.getElementById('btn-stop')?.addEventListener('click', () => this._app.stop());
-    document.getElementById('btn-prev')?.addEventListener('click', () => this._app.prev());
-    document.getElementById('btn-next')?.addEventListener('click', () => this._app.next());
+    const actions = [
+      ['btn-prev', () => this._app.prev()],
+      ['btn-stop', () => this._app.stop()],
+      ['btn-play', () => this._app.togglePlay()],
+      ['btn-next', () => this._app.next()]
+    ];
+    actions.forEach(([id, action]) => {
+      const button = document.getElementById(id);
+      if (!button) return;
+      button.addEventListener('click', action);
+      button.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        action();
+      });
+    });
   }
 
   /* ─── İlerleme çubuğu tıklama (seekTo) ─── */
@@ -1626,7 +2638,7 @@ class UI {
       btn.dataset.stationIndex = String(i);
       btn.type = 'button';
       const health = this._app._stationHealth.get(s.streamUrl);
-      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : 'Bağlantı kontrol ediliyor';
+      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : s.isCustom ? 'Kişisel kanal' : 'Bağlantı kontrol ediliyor';
       btn.classList.toggle('is-offline', health?.healthy === false);
       btn.setAttribute('aria-label', `${s.frequency.toFixed(1)} MHz – ${s.name}${s.genre ? ` - ${s.genre}` : ''} - ${statusText}`);
 
@@ -1636,7 +2648,7 @@ class UI {
           <span class="station-info-name">${this._esc(s.name || '')}</span>
           ${s.genre ? `<span class="station-info-separator" aria-hidden="true">-</span><span class="station-info-genre">${this._esc(s.genre)}</span>` : ''}
         </span>
-        <span class="station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}" title="${this._esc(health?.message || 'İstasyon bağlantı kontrolü bekleniyor.')}">${health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST'}</span>
+        <span class="station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}" title="${this._esc(health?.message || (s.isCustom ? 'Kişisel kaset kanalına bağlı istasyon.' : 'İstasyon bağlantı kontrolü bekleniyor.'))}">${health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : s.isCustom ? 'KİŞİSEL' : 'TEST'}</span>
         ${active ? `<span class="station-dot ${isOn ? 'playing' : ''}"></span>` : ''}
       `;
       btn.addEventListener('click', () => this._app.switchToRadio(i));
@@ -1652,12 +2664,12 @@ class UI {
       if (!station) return;
       const health = this._app._stationHealth.get(station.streamUrl);
       const badge = button.querySelector('.station-health-badge');
-      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : 'Bağlantı kontrol ediliyor';
+      const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : station.isCustom ? 'Kişisel kanal' : 'Bağlantı kontrol ediliyor';
       button.classList.toggle('is-offline', health?.healthy === false);
       button.setAttribute('aria-label', `${station.frequency.toFixed(1)} MHz – ${station.name}${station.genre ? ` - ${station.genre}` : ''} - ${statusText}`);
       if (badge) {
-        badge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : 'TEST';
-        badge.title = health?.message || 'İstasyon bağlantı kontrolü bekleniyor.';
+        badge.textContent = health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : station.isCustom ? 'KİŞİSEL' : 'TEST';
+        badge.title = health?.message || (station.isCustom ? 'Kişisel kaset kanalına bağlı istasyon.' : 'İstasyon bağlantı kontrolü bekleniyor.');
         badge.classList.toggle('is-online', health?.healthy === true);
         badge.classList.toggle('is-offline', health?.healthy === false);
       }
@@ -1727,28 +2739,139 @@ class UI {
     item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
-  /* Kaset seçicilerini kategori ve aktif kasete göre güncelle */
-  renderTapeSelectors(tapes, activeTapeIdx, selectedCategory = 'all') {
-    const categoryFilter = document.getElementById('tape-category-filter');
-    const tapeChoice = document.getElementById('tape-choice');
-    if (!categoryFilter || !tapeChoice) return;
+  renderCassetteShelf(tapes, activeTapeIdx) {
+    const activeTape = tapes[activeTapeIdx];
+    const cassetteName = document.getElementById('cassette-set-name');
+    if (cassetteName) cassetteName.textContent = activeTape?.label || 'Kaset seç';
 
-    const categories = [...new Set(tapes.map(tape => tape.category || 'Diğer'))]
-      .sort((a, b) => a.localeCompare(b, 'tr'));
-    categoryFilter.replaceChildren(new Option('Tüm kategoriler', 'all'));
-    categories.forEach(category => categoryFilter.add(new Option(category, category)));
-    categoryFilter.value = selectedCategory;
+    const svg = document.querySelector('.cassette-rack-svg');
+    if (!svg) return;
 
-    const visibleTapes = tapes
-      .map((tape, index) => ({ tape, index }))
-      .filter(({ tape }) => selectedCategory === 'all' || (tape.category || 'Diğer') === selectedCategory);
-    tapeChoice.replaceChildren(...visibleTapes.map(({ tape, index }) =>
-      new Option(`${tape.label} (${tape.tracks?.length || 0} parça)`, String(index))
-    ));
-    tapeChoice.disabled = visibleTapes.length === 0;
-    if (visibleTapes.length > 0) {
-      tapeChoice.value = String(activeTapeIdx);
-    }
+    const MAX_SHELF_TAPES = 12;
+    const allEntries = tapes.map((tape, tapeIndex) => ({ tape, tapeIndex }));
+    const shelfTapes = [
+      ...allEntries.filter(entry => entry.tape?.isCustom),
+      ...allEntries.filter(entry => !entry.tape?.isCustom),
+    ].slice(0, MAX_SHELF_TAPES);
+    svg.setAttribute('viewBox', '0 0 340 165');
+
+    // Keep existing ID matches, then fill any unmatched fixed slots with unassigned tapes.
+    const rackSlots = Array.from(svg.querySelectorAll('.svg-tape'));
+    const tapeEntries = shelfTapes;
+    const usedTapeIds = new Set();
+    const slotAssignments = rackSlots.map(cassette => {
+      const match = tapeEntries.find(entry =>
+        entry.tape.id === cassette.dataset.tape && !usedTapeIds.has(entry.tape.id)
+      );
+      if (match) usedTapeIds.add(match.tape.id);
+      return match || null;
+    });
+    const unassignedTapes = tapeEntries.filter(({ tape }) => !usedTapeIds.has(tape.id));
+    let nextUnassignedIndex = 0;
+    slotAssignments.forEach((entry, slotIndex) => {
+      if (entry) return;
+      const nextEntry = unassignedTapes[nextUnassignedIndex++] || null;
+      slotAssignments[slotIndex] = nextEntry;
+      if (nextEntry) usedTapeIds.add(nextEntry.tape.id);
+    });
+
+    rackSlots.forEach((cassette, slotIndex) => {
+      const assignment = slotAssignments[slotIndex];
+      const tape = assignment?.tape || null;
+      const tapeIndex = assignment?.tapeIndex ?? -1;
+      const label = cassette.querySelector('.svg-tape-label');
+      cassette.dataset.tape = tape?.id || '';
+      if (label) label.textContent = tape?.label || '';
+      cassette.classList.toggle('is-empty', !tape);
+      cassette.classList.toggle('active-tape', Boolean(tape) && tapeIndex === activeTapeIdx);
+      cassette.setAttribute('aria-disabled', String(!tape));
+      if (tape) {
+        cassette.setAttribute('role', 'button');
+        cassette.setAttribute('tabindex', '0');
+        cassette.setAttribute('aria-label', `${tape.label} kasetini seç`);
+        cassette.setAttribute('title', tape.label);
+      } else {
+        cassette.removeAttribute('role');
+        cassette.removeAttribute('tabindex');
+        cassette.removeAttribute('aria-label');
+        cassette.removeAttribute('title');
+      }
+    });
+
+    // ── SVG'de slotu olmayan kasetleri dinamik olarak ekle ──
+    const existingIds = new Set(usedTapeIds);
+
+    // Sabit kasetlerden sonraki tek sıra yuvaları için x konumunu bul.
+    const existingSlots = svg.querySelectorAll('.svg-tape[data-tape]');
+    let maxX = 26; // ilk kaset x=26; kasetler arası adım 24px
+    existingSlots.forEach(el => {
+      const t = el.getAttribute('transform') || '';
+      const m = t.match(/translate\((\d+),\s*10\)/);
+      if (m) maxX = Math.max(maxX, Number(m[1]));
+    });
+
+    // Eksik kasetleri tek sıraya dik olarak ekle; raf kapasitesi 12 ile sınırlı.
+    shelfTapes.forEach(({ tape, tapeIndex }) => {
+      if (existingIds.has(tape.id)) return; // zaten var
+
+      // Yeni dik kaset slotu oluştur
+      const nextX = maxX + 24;
+      maxX = nextX;
+
+      const ns = 'http://www.w3.org/2000/svg';
+      // Rastgele renk seç
+      const COLORS = ['#8ab097','#c4515c','#467599','#814785','#d4a04a','#637368','#4a7c59','#9b4a6e'];
+      const textColor = ['#1d2d24','#fff5f5','#f0f7ff','#fdf4ff','#1a120b','#f1f5f2','#f0fff4','#fff0f7'];
+      const ci = tapeIndex % COLORS.length;
+      const tapeColor = /^#[0-9a-f]{6}$/i.test(tape.color || '') ? tape.color : COLORS[ci];
+      const labelColor = tape.isCustom ? (tapeColor.toLowerCase() === '#d59333' ? '#1a120b' : '#fff5f5') : textColor[ci];
+
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', `svg-tape${tapeIndex === activeTapeIdx ? ' active-tape' : ''}`);
+      g.setAttribute('data-tape', tape.id);
+      g.setAttribute('transform', `translate(${nextX}, 10)`);
+      g.setAttribute('role', 'button');
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('aria-label', `${tape.label} kasetini seç`);
+      g.setAttribute('title', tape.label);
+
+      // Dış kutu
+      const outer = document.createElementNS(ns, 'rect');
+      outer.setAttribute('x','0'); outer.setAttribute('y','0');
+      outer.setAttribute('width','22'); outer.setAttribute('height','124');
+      outer.setAttribute('rx','2'); outer.setAttribute('fill','#e8eaed');
+      outer.setAttribute('fill-opacity','0.45');
+      outer.setAttribute('stroke','#2b2d42'); outer.setAttribute('stroke-width','0.8');
+      // Renk dolgu
+      const fill = document.createElementNS(ns, 'rect');
+      fill.setAttribute('x','2'); fill.setAttribute('y','7');
+      fill.setAttribute('width','18'); fill.setAttribute('height','113');
+      fill.setAttribute('fill', tapeColor);
+      // Parlak üst şerit
+      const shine = document.createElementNS(ns, 'rect');
+      shine.setAttribute('x','2'); shine.setAttribute('y','1.5');
+      shine.setAttribute('width','18'); shine.setAttribute('height','4');
+      shine.setAttribute('rx','0.5');
+      shine.setAttribute('fill','#ffffff'); shine.setAttribute('fill-opacity','0.55');
+      // Etiket
+      const text = document.createElementNS(ns, 'text');
+      text.setAttribute('class','svg-tape-label');
+      text.setAttribute('x','11'); text.setAttribute('y','65');
+      text.setAttribute('fill', labelColor);
+      text.setAttribute('font-family',"'Courier New', monospace");
+      text.setAttribute('font-size','8.5');
+      text.setAttribute('font-weight','bold');
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('transform','rotate(90, 11, 65)');
+      text.setAttribute('letter-spacing','0.5');
+      const shelfLabel = tape.label.length > 22 ? `${tape.label.slice(0, 21)}…` : tape.label;
+      text.textContent = shelfLabel;
+
+      g.append(outer, fill, shine, text);
+
+      svg.insertBefore(g, svg.querySelector('.shelf-front'));
+      existingIds.add(tape.id);
+    });
   }
 
   /** HTML escape */
@@ -1758,6 +2881,39 @@ class UI {
       .replace(/</g,'&lt;')
       .replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;');
+  }
+
+  /**
+   * Duvar çerçevesindeki resmi albüm kapağıyla değiştirir.
+   * artworkUrl: null veya boş string → orijinal oda resmini geri yükle
+   */
+  setWallArtwork(artworkUrl) {
+    const img = document.getElementById('wall-picture-right');
+    if (!img) return;
+
+    if (artworkUrl) {
+      // Yeni resmi yükle — yüklenene kadar mevcut görüntü kalsın
+      const temp = new Image();
+      temp.onload = () => {
+        img.src = artworkUrl;
+        img.classList.add('wall-artwork-active');
+        img.alt = 'Albüm kapağı';
+      };
+      temp.onerror = () => {
+        // Yüklenemezse orijinal odaya dön
+        this._restoreRoomPicture(img);
+      };
+      temp.src = artworkUrl;
+    } else {
+      this._restoreRoomPicture(img);
+    }
+  }
+
+  _restoreRoomPicture(img) {
+    img.classList.remove('wall-artwork-active');
+    img.alt = '';
+    // setRandomRoomPictures() global fonksiyonunu tekrar çağır
+    if (typeof setRandomRoomPictures === 'function') setRandomRoomPictures();
   }
 
   get volume() { return this._volume; }
@@ -1777,7 +2933,6 @@ class App {
     this._tapes     = [];   // [{ id, label, color, tracks[] }]
     this._tapeIdx   = 0;    // aktif kaset (raf) indeksi
     this._trackIdx  = 0;    // aktif kaset içindeki parça indeksi
-    this._tapeCategory = 'all';
     this._mode      = 'tape';
     this._radioIdx  = -1;
     this._errorTracks = new Set(); // "tapeIdx:trackIdx" string seti
@@ -1789,6 +2944,7 @@ class App {
     this._metadataRequestId = 0;
     this._stationHealth = new Map();
     this._stationHealthTimer = null;
+    this._defaultStations = [];
     this._powered = true;
     this._resumeAfterPowerOn = null;
     this._audioEngine = new AudioEngine();
@@ -1803,6 +2959,14 @@ class App {
   get _activeTrack()  { return this._activeTracks[this._trackIdx] || null; }
   _errKey(ti, tri)    { return `${ti}:${tri}`; }
 
+  /** Yönetim panosundaki canlı kart için "95.0 MHz · Power FM" etiketi */
+  _radioLabel(station) {
+    if (!station) return '';
+    const freq = Number(station.frequency);
+    const freqText = Number.isFinite(freq) && freq > 0 ? `${freq.toFixed(1)} MHz` : '';
+    return [freqText, station.name || 'Radyo'].filter(Boolean).join(' · ');
+  }
+
   async init() {
     const [stations, tapes] = await Promise.all([
       DataLoader.fetchStations(),
@@ -1810,6 +2974,7 @@ class App {
     ]);
     this._stations = stations;
     this._tapes    = tapes;
+    this._defaultStations = stations.slice();
 
     this._radio = new RadioController(this._audioEngine, stations);
     this._radio.onStationChange = (st, idx) => {
@@ -1823,8 +2988,10 @@ class App {
       this._ui.updateRadioStatus(isOn, this._radio.currentStation);
       if (isOn && this._radio.currentStation) {
         this._startNowPlaying(this._radio.currentStation);
+        Heartbeat.start('radio', this._radioLabel(this._radio.currentStation));
       } else {
         this._stopNowPlaying();
+        Heartbeat.stop();
       }
     };
 
@@ -1842,12 +3009,19 @@ class App {
       this._spectrum.setTapePlaying(true);
       this._ui.setPlayState(true);
       this._ui.updateTapeStatus(true, this._activeTrack);
+      // Albüm kapağını duvara yansıt
+      this._ui.setWallArtwork(this._activeTrack?.artworkUrl || null);
+      // Dinleyici heartbeat başlat
+      Heartbeat.start('tape', this._activeTrack?.title || 'Kaset');
     };
     this._tape.onPause = () => {
       this._tapeIsPlaying = false;
       this._spectrum.setTapePlaying(false);
       this._ui.setPlayState(false);
       this._ui.updateTapeStatus(false, this._activeTrack);
+      // Duraklayınca dinleyici sayısından düş
+      Heartbeat.stop();
+      // Duraklayınca kapak kalsın (silinmesin)
     };
     this._tape.onFinish = () => {
       this._tapeIsPlaying = false;
@@ -1867,16 +3041,43 @@ class App {
     };
     this._tape.onError = () => {
       showToast(`Parça yüklenemedi: ${this._activeTrack?.title || '?'}`);
+      Heartbeat.stop();
       this._errorTracks.add(this._errKey(this._tapeIdx, this._trackIdx));
       this._ui.renderTrackList(this._activeTracks, this._trackIdx, this._errorTracks, this._tapeIdx);
-      setTimeout(() => this._nextTrack(), 1500);
+
+      // Hatalı parçadan sonraki erişilebilir parçayı bul (ardışık hataları atla)
+      const tracks = this._activeTracks;
+      const total  = tracks.length;
+      if (!total) return;
+
+      let next = (this._trackIdx + 1) % total;
+      let tries = 0;
+      // _errorTracks içinde olmayan ilk parçayı bul (tam tur hariç)
+      while (
+        tries < total - 1 &&
+        this._errorTracks.has(this._errKey(this._tapeIdx, next))
+      ) {
+        next = (next + 1) % total;
+        tries++;
+      }
+
+      // Kasetteki tüm parçalar hatalıysa dur
+      if (tries >= total - 1 && this._errorTracks.has(this._errKey(this._tapeIdx, next))) {
+        showToast('Bu kasetteki tüm parçalar yüklenemedi.');
+        this._tapeIsPlaying = false;
+        this._spectrum.setTapePlaying(false);
+        this._ui.setPlayState(false);
+        return;
+      }
+
+      setTimeout(() => this._selectTape(this._tapeIdx, next, true), 800);
     };
     this._tape.onAutoplayBlocked = () => {
       showToast('Tarayıcı otomatik oynatmayı engelledi. Çal düğmesine dokunun.');
     };
 
     this._ui.renderStationList(stations, -1, false);
-    this._ui.renderTapeSelectors(this._tapes, this._tapeIdx, this._tapeCategory);
+    this._ui.renderCassetteShelf(this._tapes, this._tapeIdx);
     if (this._activeTape) {
       this._ui.renderTrackList(this._activeTracks, this._trackIdx, this._errorTracks, this._tapeIdx);
       this._ui.updateTapeStatus(false, this._activeTrack);
@@ -1942,6 +3143,18 @@ class App {
 
   async switchToRadio(index) {
     if (!this._powered) return;
+    const station = this._stations[index];
+    if (station?.cassetteId) {
+      const tapeIndex = this._tapes.findIndex(tape => tape.id === station.cassetteId);
+      const tape = tapeIndex >= 0 ? this._tapes[tapeIndex] : null;
+      const trackIndex = tape?.tracks?.findIndex(track => track.streamUrl === station.streamUrl) ?? -1;
+      if (tape && trackIndex >= 0) {
+        this._tapeIdx = tapeIndex;
+        this._trackIdx = trackIndex;
+        this._ui.renderCassetteShelf(this._tapes, tapeIndex);
+        this._ui.renderTrackList(tape.tracks, trackIndex, this._errorTracks, tapeIndex);
+      }
+    }
     if (this._tapeIsPlaying) {
       this._tape.pause();
       this._tapeIsPlaying = false;
@@ -1949,11 +3162,75 @@ class App {
       this._ui.updateTapeStatus(false);
       this._ui.setPlayState(false);
     }
+    // Radyoya geçince albüm kapağını kaldır, orijinal odaya dön
+    this._ui.setWallArtwork(null);
     this._mode = 'radio';
     this._spectrum.setMode('radio');
     this._staticPlaying = false;
     await this._radio.selectStation(index);
     this._ui.setPlayState(true);
+  }
+
+  setCustomCassettes(cassettes, activeId = null, autoPlay = false) {
+    const previousActiveId = this._mode === 'tape' && this._activeTape?.isCustom ? this._activeTape.id : null;
+    const previousTrackIndex = this._trackIdx;
+    const wasPlaying = this._tapeIsPlaying;
+    const hadCustomActive = Boolean(previousActiveId);
+    if (hadCustomActive) {
+      this._tape.pause();
+      this._tapeIsPlaying = false;
+      this._spectrum.setTapePlaying(false);
+      this._ui.setPlayState(false);
+    }
+
+    if (this._radio?.currentStation?.isCustom) this._radio.stop();
+
+    const uniqueCassettes = [];
+    const seenIds = new Set();
+    (Array.isArray(cassettes) ? cassettes : []).forEach(tape => {
+      if (!tape || typeof tape.id !== 'string' || !Array.isArray(tape.tracks) || seenIds.has(tape.id)) return;
+      seenIds.add(tape.id);
+      uniqueCassettes.push({ ...tape, isCustom: true });
+    });
+    const personalStations = [];
+    uniqueCassettes.forEach(tape => tape.tracks.filter(track => track?.type === 'radio' && track.streamUrl).forEach(track => {
+      if (personalStations.some(station => station.streamUrl === track.streamUrl)) return;
+      personalStations.push({
+        frequency: Number(track.frequency) || 88,
+        name: track.title || 'Kişisel radyo',
+        genre: track.subtitle || 'Kişisel kaset',
+        streamUrl: track.streamUrl,
+        isCustom: true,
+        cassetteId: tape.id,
+        cassetteLabel: tape.label || 'Kişisel kaset',
+      });
+    }));
+    const visibleStations = personalStations.length ? personalStations : this._defaultStations;
+    this._stations.splice(0, this._stations.length, ...visibleStations);
+    if (this._radio) this._radio._stations = this._stations;
+    this._radioIdx = -1;
+    this._tapes = this._tapes.filter(tape => !tape.isCustom).concat(uniqueCassettes);
+    this._ui.renderStationList(this._stations, this._radioIdx, this._radio?.isOn === true);
+    this._ui._renderRadioCollection?.();
+    this._errorTracks.clear();
+
+    if (hadCustomActive) {
+      this._tapeIdx = 0;
+      this._trackIdx = 0;
+    }
+    const preferredActiveId = activeId || (uniqueCassettes.some(tape => tape.id === previousActiveId) ? previousActiveId : null);
+    const selectedIndex = preferredActiveId ? this._tapes.findIndex(tape => tape.id === preferredActiveId) : -1;
+    if (selectedIndex >= 0 && this._powered) {
+      const preserveCurrent = !activeId && preferredActiveId === previousActiveId;
+      const trackCount = this._tapes[selectedIndex].tracks?.length || 1;
+      const selectedTrack = preserveCurrent ? Math.min(previousTrackIndex, trackCount - 1) : 0;
+      this._selectTape(selectedIndex, selectedTrack, activeId ? autoPlay : preserveCurrent && wasPlaying);
+    } else if (hadCustomActive && this._tapes.length && this._powered) {
+      this._selectTape(0, 0, false);
+    } else {
+      this._ui.renderCassetteShelf(this._tapes, this._tapeIdx);
+    }
+    return uniqueCassettes;
   }
 
   switchToTapeBySelector(tapeIdx) {
@@ -1962,20 +3239,6 @@ class App {
 
   switchToTape(trackIdx) {
     this._selectTape(this._tapeIdx, trackIdx, true);
-  }
-
-  setTapeCategory(category) {
-    if (!this._powered) return;
-    this._tapeCategory = category;
-    const activeTape = this._activeTape;
-    if (category !== 'all' && activeTape?.category !== category) {
-      const nextTapeIdx = this._tapes.findIndex(tape => (tape.category || 'Diğer') === category);
-      if (nextTapeIdx >= 0) {
-        this._selectTape(nextTapeIdx, 0, false);
-        return;
-      }
-    }
-    this._ui.renderTapeSelectors(this._tapes, this._tapeIdx, this._tapeCategory);
   }
 
   _selectTape(tapeIdx, trackIdx, autoPlay) {
@@ -1998,11 +3261,29 @@ class App {
     const tape  = this._activeTape;
     const track = this._activeTrack;
 
-    this._ui.renderTapeSelectors(this._tapes, tapeIdx, this._tapeCategory);
+    this._ui.renderCassetteShelf(this._tapes, tapeIdx);
     this._ui.renderTrackList(tape?.tracks || [], trackIdx, this._errorTracks, tapeIdx);
     this._ui.scrollTrackIntoView(trackIdx);
     this._ui.updateTapeStatus(false, track);
     this._ui.resetTapeCounter();
+
+    if (track?.type === 'radio' && track.streamUrl) {
+      const stationIndex = this._stations.findIndex(station => station.streamUrl === track.streamUrl);
+      if (stationIndex < 0) return;
+      if (this._tapeIsPlaying) {
+        this._tape.pause();
+        this._tapeIsPlaying = false;
+        this._spectrum.setTapePlaying(false);
+      }
+      this._mode = 'radio';
+      this._spectrum.setMode('radio');
+      this._radioIdx = stationIndex;
+      this._radio._currentIndex = stationIndex;
+      this._radio._isOn = false;
+      this._ui.updateRadioStatus(false, this._stations[stationIndex]);
+      if (autoPlay) this._radio.selectStation(stationIndex);
+      return;
+    }
 
     if (track) this._tape.load(track.soundcloudUrl, autoPlay);
   }
@@ -2146,6 +3427,78 @@ function setRandomRoomPictures() {
 }
 
 setRandomRoomPictures();
+
+/* ═══════════════════════════════════════════════════════
+   DİNLEYİCİ HEARTBEAT
+   Oynatma aktifken 20 sn'de bir sunucuya bildirim gönderir.
+   Sunucu 75 sn içinde heartbeat gelmezse dinleyiciyi düşürür
+   (arka plan sekmesinde tarayıcı zamanlayıcıları seyrekleştirdiği
+   için TTL bilinçli olarak geniş tutuldu).
+   ═══════════════════════════════════════════════════════ */
+const Heartbeat = (() => {
+  const INTERVAL_MS = 20_000;
+
+  // Tarayıcı sekmesine özgü rastgele oturum kimliği
+  let _id = sessionStorage.getItem('kk_hb_id');
+  if (!_id) {
+    _id = crypto.randomUUID?.() || `kk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem('kk_hb_id', _id);
+  }
+
+  let _timer = null;
+  let _mode  = null;   // 'radio' | 'tape' | null
+  let _label = '';
+
+  function _send(mode, label) {
+    fetch('/api/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: _id, mode, label }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  function _clearTimer() {
+    if (_timer) { clearInterval(_timer); _timer = null; }
+  }
+
+  /** Sunucudan dinleyiciyi hemen düşür (sayfadan çıkış, duraklatma) */
+  function _leave() {
+    if (!_mode) return;
+    _mode = null;
+    _label = '';
+    fetch('/api/heartbeat', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: _id }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  // Arka plan sekmesinde ses çalmaya devam ettiği için heartbeat sürer;
+  // sekme öne geldiğinde sayaç gecikmesin diye anında tazelenir.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _mode) _send(_mode, _label);
+  });
+  window.addEventListener('pagehide', () => { _clearTimer(); _leave(); });
+
+  return {
+    start(mode, label) {
+      const nextLabel = String(label || '').slice(0, 120);
+      const changed = _mode !== mode || _label !== nextLabel;
+      _mode  = mode;
+      _label = nextLabel;
+      if (!_timer) {
+        _timer = setInterval(() => { if (_mode) _send(_mode, _label); }, INTERVAL_MS);
+      }
+      if (changed) _send(_mode, _label);
+    },
+    stop() {
+      _clearTimer();
+      _leave();
+    },
+  };
+})();
 
 const app = new App();
 app.init().catch(err => {

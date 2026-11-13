@@ -12,9 +12,27 @@
 
 import express from 'express';
 import { createServer } from 'http';
-import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises';
+import { appendFile, mkdir, readFile, readdir, stat, unlink, writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+// ── .env dosyasını yükle (harici paket gerekmez) ──────────────────────────────
+{
+  try {
+    const __dir = dirname(fileURLToPath(import.meta.url));
+    const raw   = await readFile(join(__dir, '.env'), 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq < 1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+      if (key && !(key in process.env)) process.env[key] = val;
+    }
+  } catch { /* .env yoksa sessizce geç */ }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import https from 'https';
@@ -24,6 +42,8 @@ import { isIP } from 'net';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+// Gövde ayrıştırıcı tüm rotalardan önce kayıtlı olmalı (heartbeat dahil).
+app.use(express.json({ limit: '512kb' }));
 const PORT = process.env.PORT || 3000;
 const ADMIN_COOKIE = 'kk_admin_session';
 const ADMIN_SESSION_SECONDS = 8 * 60 * 60;
@@ -95,6 +115,13 @@ const stationHealth = new Map();
 let stationCheckRun = null;
 const STATION_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const STATION_CHECK_CONCURRENCY = 4;
+const customCassetteRateLimits = new Map();
+const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
+const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
+const CUSTOM_CASSETTE_MAX_TRACKS = 20;
+const CUSTOM_CASSETTE_MAX_PER_EMAIL = 12;
+let customCassetteSecretPromise = null;
+let customCassetteWriteChain = Promise.resolve();
 
 // ─────────────────────────────────────────────
 // Yardımcı: JSON dosyasını diskten oku (önbelleksiz)
@@ -115,9 +142,10 @@ async function readJSON(filePath) {
 }
 
 async function writeJSONAtomic(filePath, data) {
-  const tempPath = `${filePath}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-  await rename(tempPath, filePath);
+  const content = `${JSON.stringify(data, null, 2)}\n`;
+  // Docker Windows volume mount'ta rename() EBUSY/EPERM verebilir.
+  // Güvenli yol: doğrudan writeFile (overwrite).
+  await writeFile(filePath, content, { encoding: 'utf8' });
 }
 
 function isPublicAddress(address) {
@@ -167,7 +195,10 @@ async function assertPublicHttpUrl(value) {
   }
   const addresses = isIP(hostname)
     ? [{ address: hostname, family: isIP(hostname) }]
-    : await lookup(hostname, { all: true, verbatim: true });
+    : await Promise.race([
+        lookup(hostname, { all: true, verbatim: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Alan adı çözümleme zaman aşımına uğradı.')), 5000)),
+      ]);
   if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
     throw new Error('Bağlantı genel internet adresine çözülmüyor.');
   }
@@ -244,11 +275,15 @@ function validateTape(value) {
   if (!label || label.length > 120 || !category || category.length > 80 || !/^#[0-9a-f]{6}$/i.test(color)) {
     throw new Error('Kaset adı, kategorisi veya rengi geçersiz.');
   }
-  if (!Array.isArray(value.tracks) || value.tracks.length > 300) throw new Error('Kasette en fazla 300 parça olabilir.');
-  const tracks = value.tracks.map((track, index) => {
+  if (!Array.isArray(value.tracks)) throw new Error('Parça listesi geçersiz.');
+  // 300'den fazla parça varsa sessizce kes — hata verme
+  const rawTracks = value.tracks.slice(0, 300);
+  const tracks = rawTracks.map((track, index) => {
     const title = typeof track?.title === 'string' ? track.title.trim() : '';
     const subtitle = typeof track?.subtitle === 'string' ? track.subtitle.trim() : '';
     const soundcloudUrl = typeof track?.soundcloudUrl === 'string' ? track.soundcloudUrl.trim() : '';
+    // artworkUrl: opsiyonel, boş olabilir, sadece https:// ile başlamalı
+    const artworkUrl = typeof track?.artworkUrl === 'string' ? track.artworkUrl.trim() : '';
     if (!title || title.length > 160 || subtitle.length > 120 || !soundcloudUrl || soundcloudUrl.length > 2048) {
       throw new Error(`${index + 1}. parçanın bilgileri geçersiz.`);
     }
@@ -258,7 +293,9 @@ function validateTape(value) {
     if (url.protocol !== 'https:' || (hostname !== 'soundcloud.com' && !hostname.endsWith('.soundcloud.com'))) {
       throw new Error(`${index + 1}. parça HTTPS SoundCloud bağlantısı olmalı.`);
     }
-    return { title, subtitle, soundcloudUrl };
+    // artworkUrl doğrulama: boşsa atla, varsa https kontrolü
+    const safeArtwork = artworkUrl && artworkUrl.startsWith('https://') ? artworkUrl : '';
+    return { title, subtitle, soundcloudUrl, ...(safeArtwork ? { artworkUrl: safeArtwork } : {}) };
   });
   return { label, category, color, tracks };
 }
@@ -283,6 +320,126 @@ async function readAdminTapes() {
     tapes.push({ id: file.replace(/\.json$/i, ''), ...validateTape({ ...tape, category: tape.category || 'Diğer' }) });
   }
   return tapes;
+}
+
+function consumeCustomCassetteRateLimit(req, action) {
+  const key = `${action}:${req.ip || req.socket.remoteAddress || 'unknown'}`;
+  const now = Date.now();
+  const windowMs = action === 'create' ? 60 * 60 * 1000 : 15 * 60 * 1000;
+  const limit = action === 'create' ? 8 : 30;
+  const previous = customCassetteRateLimits.get(key);
+  if (customCassetteRateLimits.size > 1000) {
+    for (const [entryKey, entry] of customCassetteRateLimits) {
+      if (entry.resetAt <= now) customCassetteRateLimits.delete(entryKey);
+    }
+  }
+  if (previous && previous.resetAt > now && previous.count >= limit) return false;
+  const current = previous && previous.resetAt > now
+    ? previous
+    : { count: 0, resetAt: now + windowMs };
+  current.count++;
+  customCassetteRateLimits.set(key, current);
+  return true;
+}
+
+function normalizeCustomCassetteEmail(value) {
+  if (typeof value !== 'string') return '';
+  const email = value.trim().normalize('NFKC').toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/u.test(email)) return '';
+  return email;
+}
+
+async function getCustomCassetteSecret() {
+  if (!customCassetteSecretPromise) {
+    customCassetteSecretPromise = (async () => {
+      await mkdir(dirname(CUSTOM_CASSETTE_SECRET_PATH), { recursive: true });
+      try {
+        const secret = await readFile(CUSTOM_CASSETTE_SECRET_PATH);
+        if (secret.length !== 32) throw new Error('Kişisel kaset anahtarı geçersiz.');
+        return secret;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        const secret = randomBytes(32);
+        try {
+          await writeFile(CUSTOM_CASSETTE_SECRET_PATH, secret, { flag: 'wx', mode: 0o600 });
+          return secret;
+        } catch (writeError) {
+          if (writeError.code !== 'EEXIST') throw writeError;
+          const existing = await readFile(CUSTOM_CASSETTE_SECRET_PATH);
+          if (existing.length !== 32) throw new Error('Kişisel kaset anahtarı geçersiz.');
+          return existing;
+        }
+      }
+    })();
+  }
+  return customCassetteSecretPromise;
+}
+
+async function hashCustomCassetteEmail(email) {
+  const secret = await getCustomCassetteSecret();
+  return createHmac('sha256', secret).update(email).digest('hex');
+}
+
+async function readCustomCassetteRecords() {
+  const { data, warning } = await readJSON(CUSTOM_CASSETTE_DATA_PATH);
+  if (warning && warning !== 'Dosya bulunamadı.') {
+    throw new Error('Kişisel kaset verisi okunamadı.');
+  }
+  if (!data) return [];
+  if (!Array.isArray(data.cassettes)) throw new Error('Kişisel kaset verisi geçersiz.');
+  return data.cassettes;
+}
+
+function updateCustomCassetteRecords(update) {
+  const operation = customCassetteWriteChain.then(async () => {
+    const records = await readCustomCassetteRecords();
+    const result = await update(records);
+    await writeJSONAtomic(CUSTOM_CASSETTE_DATA_PATH, { version: 1, cassettes: records });
+    return result;
+  });
+  customCassetteWriteChain = operation.catch(() => {});
+  return operation;
+}
+
+function publicCustomCassette(record) {
+  return {
+    id: record.id,
+    label: record.label,
+    category: 'Kişisel kaset',
+    color: record.color,
+    tracks: record.tracks,
+    isCustom: true,
+    createdAt: record.createdAt,
+  };
+}
+
+async function normalizeCustomRadioTracks(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error('Radyo istasyonu listesi geçersiz.');
+  const seen = new Set();
+  const usedFrequencies = new Set();
+  const tracks = [];
+  for (const station of value) {
+    const streamUrl = typeof station?.streamUrl === 'string' ? station.streamUrl.trim() : '';
+    if (!streamUrl || seen.has(streamUrl)) throw new Error('Radyo istasyonlarında boş veya yinelenen kayıt var.');
+    await assertPublicHttpUrl(streamUrl);
+    seen.add(streamUrl);
+    let frequencyKey = Math.round(Number(station?.frequency) * 10);
+    if (!Number.isInteger(frequencyKey) || frequencyKey < 880 || frequencyKey > 1080 || usedFrequencies.has(frequencyKey)) {
+      frequencyKey = 880;
+      while (usedFrequencies.has(frequencyKey) && frequencyKey <= 1080) frequencyKey++;
+    }
+    if (frequencyKey > 1080) throw new Error('Kişisel kasette kullanılabilecek frekans aralığı dolu.');
+    usedFrequencies.add(frequencyKey);
+    tracks.push({
+      type: 'radio',
+      title: typeof station?.name === 'string' && station.name.trim() ? station.name.trim().slice(0, 120) : 'İsimsiz radyo',
+      subtitle: typeof station?.genre === 'string' ? station.genre.trim().slice(0, 80) : '',
+      streamUrl,
+      frequency: frequencyKey / 10,
+    });
+  }
+  return tracks;
 }
 
 async function probeStation(station) {
@@ -588,9 +745,67 @@ function readIcyMetadata(url, redirectsLeft = 5) {
 }
 
 // ─────────────────────────────────────────────
+// Dinleyici heartbeat sistemi
+// Her oynatıcı 15 sn'de bir POST /api/heartbeat gönderir.
+// 20 sn içinde heartbeat gelmezse dinleyici düşer.
+// sessionId: istemci tarafında rastgele üretilen UUID.
+// ─────────────────────────────────────────────
+const listeners = new Map(); // sessionId → { lastSeen, firstSeen, mode, label }
+const LISTENER_TTL_MS = 75_000;
+const LISTENER_HEARTBEAT_MS = 20_000;
+
+function pruneListeners() {
+  const now = Date.now();
+  for (const [id, info] of listeners) {
+    if (now - info.lastSeen > LISTENER_TTL_MS) listeners.delete(id);
+  }
+}
+
+app.post('/api/heartbeat', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const id    = typeof req.body?.sessionId === 'string' ? req.body.sessionId.slice(0, 64) : null;
+  const mode  = typeof req.body?.mode      === 'string' ? req.body.mode.slice(0, 16)      : 'idle';
+  const label = typeof req.body?.label     === 'string' ? req.body.label.slice(0, 120)    : '';
+  if (!id) return res.status(400).json({ error: 'sessionId gerekli.' });
+  const now = Date.now();
+  const previous = listeners.get(id);
+  listeners.set(id, {
+    lastSeen: now,
+    firstSeen: previous?.firstSeen || now,
+    mode,
+    label,
+  });
+  res.json({ ok: true, listeners: listeners.size, intervalMs: LISTENER_HEARTBEAT_MS });
+});
+
+app.delete('/api/heartbeat', (req, res) => {
+  const id = typeof req.body?.sessionId === 'string' ? req.body.sessionId.slice(0, 64) : null;
+  if (id) listeners.delete(id);
+  pruneListeners();
+  res.json({ ok: true });
+});
+
+app.get('/api/listeners', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  pruneListeners();
+  const now = Date.now();
+  const list = [...listeners.values()].map(({ mode, label, firstSeen }) => ({
+    mode,
+    label,
+    seconds: Math.max(0, Math.round((now - firstSeen) / 1000)),
+  }));
+  res.json({
+    count: list.length,
+    radio: list.filter(item => item.mode === 'radio').length,
+    tape: list.filter(item => item.mode === 'tape').length,
+    listeners: list,
+    updatedAt: new Date(now).toISOString(),
+  });
+});
+
+// ─────────────────────────────────────────────
 // Statik dosyalar
 // ─────────────────────────────────────────────
-app.use(express.json({ limit: '512kb' }));
 app.get('/admin', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(join(__dirname, 'public', 'admin.html'));
@@ -646,6 +861,121 @@ app.post('/api/admin/login', requireSameOrigin, (req, res) => {
 app.post('/api/admin/logout', requireSameOrigin, (req, res) => {
   setAdminCookie(res, '', 0);
   res.json({ authenticated: false });
+});
+
+// ─────────────────────────────────────────────
+// GET /api/admin/search-radio?q=<name>&country=TR&limit=20
+// radio-browser.info API'sinden istasyon arar.
+// Admin oturumu gerektirir. Sonuçları stations.json formatına normalize eder.
+// ─────────────────────────────────────────────
+app.get('/api/admin/search-radio', async (req, res) => {
+  const q       = typeof req.query.q       === 'string' ? req.query.q.trim()       : '';
+  const country = typeof req.query.country === 'string' ? req.query.country.trim() : '';
+  const tag     = typeof req.query.tag     === 'string' ? req.query.tag.trim()     : '';
+  const limit   = Math.min(parseInt(req.query.limit || '30', 10), 100);
+
+  // En az bir arama kriteri zorunlu
+  if (!q && !country && !tag) {
+    return res.status(400).json({ error: 'Arama için en az bir kriter (q, country veya tag) gerekli.' });
+  }
+
+  const params = new URLSearchParams({
+    hidebroken: 'true',
+    order:      'votes',
+    reverse:    'true',
+    limit:      String(limit),
+  });
+  if (q)       params.set('name', q);
+  if (country) params.set('countrycode', country.toUpperCase());
+  if (tag)     params.set('tag', tag);
+
+  // radio-browser.info — birden fazla sunucu var, ilkini dene
+  const RADIO_API = 'https://de1.api.radio-browser.info/json/stations/search';
+
+  try {
+    const response = await new Promise((resolve, reject) => {
+      const url  = new URL(`${RADIO_API}?${params}`);
+      const req2 = https.request(
+        { hostname: url.hostname, port: 443,
+          path: url.pathname + url.search, method: 'GET',
+          headers: { 'User-Agent': 'KarisikKaset/1.0 (admin-search)' },
+          timeout: 10000 },
+        resolve
+      );
+      req2.on('error', reject);
+      req2.on('timeout', () => { req2.destroy(); reject(new Error('API zaman aşımı.')); });
+      req2.end();
+    });
+
+    if (response.statusCode !== 200) {
+      response.resume();
+      return res.status(502).json({ error: `radio-browser.info HTTP ${response.statusCode}` });
+    }
+
+    const body = await new Promise((resolve, reject) => {
+      let data = '';
+      response.setEncoding('utf8');
+      response.on('data', c => { data += c; if (data.length > 2 * 1024 * 1024) { response.destroy(); reject(new Error('Yanıt çok büyük.')); } });
+      response.on('end', () => resolve(data));
+      response.on('error', reject);
+    });
+
+    const raw = JSON.parse(body);
+
+    // stations.json formatına normalize et + HTTPS tercih
+    const stations = raw
+      .filter(s => s.url_resolved)
+      .map(s => ({
+        name:      s.name?.trim() || 'İsimsiz',
+        genre:     s.tags?.split(',')[0]?.trim() || s.country || 'Diğer',
+        streamUrl: s.url_resolved,
+        // Frekans bilgisi yok — 0 ile işaretle (kullanıcı doldurur)
+        frequency: null,
+        // Ek meta (sadece arama sonuçlarında, kaydedilmez)
+        _meta: {
+          codec:     s.codec || '',
+          bitrate:   s.bitrate || 0,
+          country:   s.country || '',
+          votes:     s.votes || 0,
+          isHttps:   s.url_resolved.startsWith('https'),
+          favicon:   s.favicon || '',
+          homepage:  s.homepage || '',
+        }
+      }));
+
+    res.json({ stations, total: stations.length });
+  } catch (err) {
+    console.error('[search-radio] Hata:', err.message);
+    res.status(502).json({ error: `Radyo arama başarısız: ${err.message}` });
+  }
+});
+
+// ─────────────────────────────────────────────
+// GET /api/admin/scraper-status  (oturum gerekmez — sadece port ping)
+// Python sc_scraper.py'nin 5001 portunda çalışıp çalışmadığını kontrol eder.
+// Hassas veri dönmez, sadece {ok: true/false}.
+// ─────────────────────────────────────────────
+app.get('/api/admin/scraper-status', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const host = process.env.SCRAPER_HOST || '127.0.0.1';
+  const port = parseInt(process.env.SCRAPER_PORT || '5001', 10);
+  try {
+    await new Promise((resolve, reject) => {
+      const req2 = http.request(
+        { hostname: host, port, path: '/scrape', method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': 2 },
+          timeout: 2000 },
+        (r) => { r.resume(); resolve(); }
+      );
+      req2.on('error', reject);
+      req2.on('timeout', () => { req2.destroy(); reject(new Error('timeout')); });
+      req2.write('{}');
+      req2.end();
+    });
+    res.json({ ok: true, host, port });
+  } catch {
+    res.json({ ok: false, host, port });
+  }
 });
 
 app.use('/api/admin', requireAdmin, requireSameOrigin);
@@ -946,6 +1276,197 @@ app.get('/api/tapes', async (req, res) => {
   res.json({ tapes });
 });
 
+app.post('/api/custom-cassettes/lookup', requireSameOrigin, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!consumeCustomCassetteRateLimit(req, 'lookup')) {
+    return res.status(429).json({ error: 'Çok fazla arama yapıldı. Bir süre sonra tekrar deneyin.' });
+  }
+  const email = normalizeCustomCassetteEmail(req.body?.email);
+  if (!email) return res.status(400).json({ error: 'Geçerli bir e-posta adresi girin.' });
+
+  try {
+    const emailHash = await hashCustomCassetteEmail(email);
+    const records = await readCustomCassetteRecords();
+    const cassettes = records
+      .filter(record => typeof record.emailHash === 'string' && safeEqual(record.emailHash, emailHash))
+      .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+      .map(publicCustomCassette);
+    res.json({ cassettes });
+  } catch (error) {
+    console.error('[custom-cassettes] Lookup failed:', error.message);
+    res.status(500).json({ error: 'Kasetler şu anda getirilemedi. Lütfen daha sonra tekrar deneyin.' });
+  }
+});
+
+app.post('/api/custom-cassettes', requireSameOrigin, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!consumeCustomCassetteRateLimit(req, 'create')) {
+    return res.status(429).json({ error: 'Çok sık kaset oluşturuldu. Bir süre sonra tekrar deneyin.' });
+  }
+
+  const email = normalizeCustomCassetteEmail(req.body?.email);
+  const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+  const color = typeof req.body?.color === 'string' ? req.body.color.trim() : '';
+  const requestedUrls = Array.isArray(req.body?.trackUrls) ? req.body.trackUrls : [];
+  const requestedStations = req.body?.radioStations;
+  if (!email) return res.status(400).json({ error: 'Geçerli bir e-posta adresi girin.' });
+  if (!label || label.length > 48) return res.status(400).json({ error: 'Kaset adı 1–48 karakter olmalı.' });
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return res.status(400).json({ error: 'Kaset rengi geçersiz.' });
+  const requestedCount = requestedUrls.length + (Array.isArray(requestedStations) ? requestedStations.length : 0);
+  if (requestedCount < 1 || requestedCount > CUSTOM_CASSETTE_MAX_TRACKS) {
+    return res.status(400).json({ error: `1–${CUSTOM_CASSETTE_MAX_TRACKS} arası parça seçin.` });
+  }
+
+  const trackUrls = requestedUrls.map(url => typeof url === 'string' ? url.trim() : '');
+  if (trackUrls.some(url => !url) || new Set(trackUrls).size !== trackUrls.length) {
+    return res.status(400).json({ error: 'Parça listesinde boş veya yinelenen kayıt var.' });
+  }
+
+  try {
+    const catalog = await readAdminTapes();
+    const allowedTracks = new Map(catalog.flatMap(tape => tape.tracks.map(track => [track.soundcloudUrl, track])));
+    const tracks = trackUrls.map(url => allowedTracks.get(url));
+    if (tracks.some(track => !track)) {
+      return res.status(400).json({ error: 'Seçilen parçalardan biri artık katalogda bulunmuyor. Listeyi yenileyip tekrar deneyin.' });
+    }
+    const radioTracks = await normalizeCustomRadioTracks(requestedStations);
+
+    const emailHash = await hashCustomCassetteEmail(email);
+    const record = {
+      id: `visitor-${randomBytes(12).toString('hex')}`,
+      emailHash,
+      label,
+      color,
+      tracks: [...tracks, ...radioTracks],
+      createdAt: new Date().toISOString(),
+    };
+    const tape = await updateCustomCassetteRecords(records => {
+      if (records.length >= 5000) {
+        const error = new Error('Kişisel kaset alanı şu anda dolu.');
+        error.statusCode = 503;
+        throw error;
+      }
+      const ownedCount = records.filter(item => typeof item.emailHash === 'string' && safeEqual(item.emailHash, emailHash)).length;
+      if (ownedCount >= CUSTOM_CASSETTE_MAX_PER_EMAIL) {
+        const error = new Error(`Bir e-posta adresi en fazla ${CUSTOM_CASSETTE_MAX_PER_EMAIL} kaset saklayabilir.`);
+        error.statusCode = 409;
+        throw error;
+      }
+      records.push(record);
+      return publicCustomCassette(record);
+    });
+    res.status(201).json({ tape, message: 'Kaset oluşturuldu ve rafa eklendi.' });
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error('[custom-cassettes] Save failed:', error.message);
+    }
+    res.status(error.statusCode || 500).json({
+      error: error.statusCode && error.statusCode < 500
+        ? error.message
+        : 'Kaset kaydedilemedi. Lütfen daha sonra tekrar deneyin.',
+    });
+  }
+});
+
+app.put('/api/custom-cassettes/:id', requireSameOrigin, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!consumeCustomCassetteRateLimit(req, 'update')) {
+    return res.status(429).json({ error: 'Çok sık düzenleme yapıldı. Bir süre sonra tekrar deneyin.' });
+  }
+  const id = req.params.id;
+  const email = normalizeCustomCassetteEmail(req.body?.email);
+  const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+  const color = typeof req.body?.color === 'string' ? req.body.color.trim() : '';
+  const requestedUrls = Array.isArray(req.body?.trackUrls) ? req.body.trackUrls : [];
+  const requestedStations = req.body?.radioStations;
+  if (!/^visitor-[a-f0-9]{24}$/.test(id)) return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
+  if (!email) return res.status(400).json({ error: 'Geçerli bir e-posta adresi girin.' });
+  if (!label || label.length > 48) return res.status(400).json({ error: 'Kaset adı 1–48 karakter olmalı.' });
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return res.status(400).json({ error: 'Kaset rengi geçersiz.' });
+  const requestedCount = requestedUrls.length + (Array.isArray(requestedStations) ? requestedStations.length : 0);
+  if (requestedCount < 1 || requestedCount > CUSTOM_CASSETTE_MAX_TRACKS) {
+    return res.status(400).json({ error: `1–${CUSTOM_CASSETTE_MAX_TRACKS} arası parça seçin.` });
+  }
+  const trackUrls = requestedUrls.map(url => typeof url === 'string' ? url.trim() : '');
+  if (trackUrls.some(url => !url) || new Set(trackUrls).size !== trackUrls.length) {
+    return res.status(400).json({ error: 'Parça listesinde boş veya yinelenen kayıt var.' });
+  }
+
+  try {
+    const emailHash = await hashCustomCassetteEmail(email);
+    const catalog = await readAdminTapes();
+    const catalogTracks = new Map(catalog.flatMap(tape => tape.tracks.map(track => [track.soundcloudUrl, track])));
+    const updatedTape = await updateCustomCassetteRecords(async records => {
+      const record = records.find(item => item.id === id && typeof item.emailHash === 'string' && safeEqual(item.emailHash, emailHash));
+      if (!record) {
+        const error = new Error('Kaset bulunamadı. E-posta adresini kontrol edin.');
+        error.statusCode = 404;
+        throw error;
+      }
+      const allowedTracks = new Map(catalogTracks);
+      (record.tracks || []).forEach(track => {
+        if (track?.soundcloudUrl && !allowedTracks.has(track.soundcloudUrl)) allowedTracks.set(track.soundcloudUrl, track);
+      });
+      const tracks = trackUrls.map(url => allowedTracks.get(url));
+      if (tracks.some(track => !track)) {
+        const error = new Error('Seçilen parçalardan biri artık kullanılabilir değil. Listeyi yenileyip tekrar deneyin.');
+        error.statusCode = 400;
+        throw error;
+      }
+      const radioTracks = await normalizeCustomRadioTracks(requestedStations);
+      record.label = label;
+      record.color = color;
+      record.tracks = [...tracks, ...radioTracks];
+      record.updatedAt = new Date().toISOString();
+      return publicCustomCassette(record);
+    });
+    res.json({ tape: updatedTape, message: 'Kaset güncellendi.' });
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error('[custom-cassettes] Update failed:', error.message);
+    }
+    res.status(error.statusCode || 500).json({
+      error: error.statusCode && error.statusCode < 500
+        ? error.message
+        : 'Kaset güncellenemedi. Lütfen daha sonra tekrar deneyin.',
+    });
+  }
+});
+
+app.delete('/api/custom-cassettes/:id', requireSameOrigin, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!consumeCustomCassetteRateLimit(req, 'delete')) {
+    return res.status(429).json({ error: 'Çok fazla silme isteği yapıldı. Bir süre sonra tekrar deneyin.' });
+  }
+  const id = req.params.id;
+  const email = normalizeCustomCassetteEmail(req.body?.email);
+  if (!/^visitor-[a-f0-9]{24}$/.test(id)) return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
+  if (!email) return res.status(400).json({ error: 'Geçerli bir e-posta adresi girin.' });
+
+  try {
+    const emailHash = await hashCustomCassetteEmail(email);
+    await updateCustomCassetteRecords(records => {
+      const index = records.findIndex(record => record.id === id && typeof record.emailHash === 'string' && safeEqual(record.emailHash, emailHash));
+      if (index < 0) {
+        const error = new Error('Kaset bulunamadı. E-posta adresini kontrol edin.');
+        error.statusCode = 404;
+        throw error;
+      }
+      records.splice(index, 1);
+    });
+    res.json({ deleted: true, message: 'Kaset silindi.' });
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error('[custom-cassettes] Delete failed:', error.message);
+    }
+    res.status(error.statusCode || 500).json({
+      error: error.statusCode && error.statusCode < 500
+        ? error.message
+        : 'Kaset silinemedi. Lütfen daha sonra tekrar deneyin.',
+    });
+  }
+});
+
 // ─────────────────────────────────────────────
 // GET /api/resolve?url=<encodedUrl>
 // PLS/M3U içindeki ilk gerçek stream URL'ini döner.
@@ -1086,6 +1607,221 @@ async function proxyStream(url, res, redirectsLeft = 5) {
   // upstream yalnızca istemci yanıtı gerçekten yarıda keserse kapatılmalı.
   res.on('close', () => {
     if (!res.writableFinished) upstream.destroy();
+  });
+}
+
+// ─────────────────────────────────────────────
+// POST /api/admin/validate-tape/:id
+// Kasetteki tüm SoundCloud URL'lerini HEAD isteğiyle kontrol eder.
+// Erişilemeyen parçaları (404, private, bölge kısıtlaması) listeler.
+// Opsiyonel: { autoClean: true } ile dead link'leri otomatik siler.
+// ─────────────────────────────────────────────
+app.post('/api/admin/validate-tape/:id', async (req, res) => {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
+  }
+  const autoClean = req.body?.autoClean === true;
+  const filePath = join(__dirname, 'config', 'tapes', `${req.params.id}.json`);
+
+  const { data, warning } = await readJSON(filePath);
+  if (warning || !data?.tracks?.length) {
+    return res.status(404).json({ error: warning || 'Kaset veya parça listesi bulunamadı.' });
+  }
+
+  const tracks = data.tracks;
+  const results = [];
+  const CONCURRENCY = 5; // Aynı anda 5 istek
+  const DELAY_MS    = 150; // İstekler arası bekleme
+
+  // Batch'ler halinde kontrol et
+  for (let i = 0; i < tracks.length; i += CONCURRENCY) {
+    const batch = tracks.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(batch.map(async (track, batchIdx) => {
+      const idx = i + batchIdx;
+      try {
+        const url  = new URL(track.soundcloudUrl);
+        const proto = url.protocol === 'https:' ? https : http;
+        const statusCode = await new Promise((resolve, reject) => {
+          const req2 = proto.request(
+            { hostname: url.hostname, port: url.port || 443,
+              path: url.pathname, method: 'HEAD',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; KarisikKaset/1.0)',
+                'Accept': 'text/html',
+              },
+              timeout: 8000 },
+            (r) => { r.resume(); resolve(r.statusCode); }
+          );
+          req2.on('error', reject);
+          req2.on('timeout', () => { req2.destroy(); reject(new Error('timeout')); });
+          req2.end();
+        });
+
+        // 301/302 redirect → SoundCloud'un kendi sitesine yönlendiriyor = parça var
+        // 404 = silinmiş, 403 = private/bölge kısıtlaması
+        const ok = statusCode < 400 || statusCode === 301 || statusCode === 302;
+        return { idx, title: track.title, url: track.soundcloudUrl, statusCode, ok };
+      } catch (err) {
+        return { idx, title: track.title, url: track.soundcloudUrl, statusCode: null, ok: false, error: err.message };
+      }
+    }));
+    results.push(...batchResults);
+    if (i + CONCURRENCY < tracks.length) await new Promise(r => setTimeout(r, DELAY_MS));
+  }
+
+  const dead    = results.filter(r => !r.ok);
+  const alive   = results.filter(r => r.ok);
+
+  // autoClean: ölü linkleri dosyadan kaldır
+  if (autoClean && dead.length > 0) {
+    const deadIndices = new Set(dead.map(r => r.idx));
+    const cleanedTracks = tracks.filter((_, i) => !deadIndices.has(i));
+    const cleanedTape   = { ...data, tracks: cleanedTracks };
+    try {
+      let validTape;
+      try { validTape = validateTape(cleanedTape); } catch { validTape = cleanedTape; }
+      await writeJSONAtomic(filePath, validTape);
+      console.log(`[validate] "${req.params.id}": ${dead.length} ölü link silindi, ${cleanedTracks.length} parça kaldı.`);
+    } catch (err) {
+      return res.status(500).json({ error: `Temizlenmiş kaset kaydedilemedi: ${err.message}` });
+    }
+  }
+
+  res.json({
+    total:   tracks.length,
+    alive:   alive.length,
+    dead:    dead.length,
+    cleaned: autoClean && dead.length > 0,
+    deadTracks: dead.map(r => ({ idx: r.idx, title: r.title, url: r.url, statusCode: r.statusCode, error: r.error })),
+  });
+});
+
+// ─────────────────────────────────────────────
+// POST /api/admin/import-playlist
+// SoundCloud playlist URL'sinden parçaları çeker ve yeni kaset olarak kaydeder.
+//
+// Body: { url: "https://soundcloud.com/.../sets/...", label: "Kaset Adı", category: "Pop", color: "#1a237e" }
+//
+// Scraping işini Python microservice (sc_scraper.py, port 5001) üstlenir.
+// Önce ona POST /scrape atar; microservice kapalıysa kullanıcıya açık mesaj verir.
+// ─────────────────────────────────────────────
+app.post('/api/admin/import-playlist', async (req, res) => {
+  const rawUrl  = typeof req.body?.url      === 'string' ? req.body.url.trim()      : '';
+  const label   = typeof req.body?.label    === 'string' ? req.body.label.trim()    : '';
+  const category= typeof req.body?.category === 'string' ? req.body.category.trim() : 'İçe Aktarılan';
+  const color   = /^#[0-9a-f]{6}$/i.test(req.body?.color || '') ? req.body.color : '#1a237e';
+
+  if (!rawUrl) return res.status(400).json({ error: 'url gerekli.' });
+  if (!label)  return res.status(400).json({ error: 'label gerekli.' });
+
+  // Yalnızca soundcloud.com'a izin ver
+  try {
+    const scUrl = new URL(rawUrl);
+    if (!['soundcloud.com','www.soundcloud.com'].includes(scUrl.hostname.toLowerCase())) {
+      return res.status(400).json({ error: 'Yalnızca soundcloud.com adresleri desteklenir.' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'Geçersiz URL.' });
+  }
+
+  // Python microservice'e (sc_scraper.py) istek at
+  let scraped;
+  try {
+    scraped = await callScraper(rawUrl);
+  } catch (err) {
+    console.error('[import] Scraper hatası:', err.message);
+    // Kullanıcıya anlaşılır mesaj ver
+    if (err.message.includes('ECONNREFUSED')) {
+      return res.status(503).json({
+        error: 'Scraper servisi çalışmıyor. Lütfen yeni bir terminal açın ve şunu çalıştırın:\n\n  python sc_scraper.py\n\nSonra tekrar deneyin.',
+      });
+    }
+    return res.status(502).json({ error: `Scraper hatası: ${err.message}` });
+  }
+
+  if (!scraped.tracks?.length) {
+    return res.status(422).json({
+      error: 'Sayfada parça bulunamadı. Yalnızca herkese açık (public) playlist\'ler desteklenir.',
+    });
+  }
+
+  // label verilmediyse playlist başlığını kullan
+  const finalLabel = label || scraped.title || 'İçe Aktarılan';
+
+  // Kaset nesnesini doğrula ve kaydet
+  const totalFound = scraped.tracks.length;
+  // 300 limitini uygula
+  if (scraped.tracks.length > 300) scraped.tracks = scraped.tracks.slice(0, 300);
+
+  const tape = { label: finalLabel, category, color, tracks: scraped.tracks };
+  let validTape;
+  try {
+    validTape = validateTape(tape);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const id = tapeSlug(finalLabel);
+  const filePath = join(__dirname, 'config', 'tapes', `${id}.json`);
+
+  try {
+    await writeJSONAtomic(filePath, validTape);
+  } catch (err) {
+    console.error('[import] Kaset kaydedilemedi:', err.message);
+    return res.status(500).json({ error: `Kaset kaydedilemedi: ${err.message}` });
+  }
+
+  console.log(`[import] "${finalLabel}" kaseti oluşturuldu: ${scraped.tracks.length} parça (toplam bulunan: ${totalFound})`);
+  res.status(201).json({
+    tape: { id, ...validTape },
+    imported: scraped.tracks.length,
+    totalFound,
+    truncated: totalFound > 300,
+  });
+});
+
+/**
+ * Python sc_scraper.py microservice'ine POST /scrape atar.
+ * - Docker ortamında: SCRAPER_HOST=scraper, SCRAPER_PORT=5001 (env'den)
+ * - Yerel geliştirmede: 127.0.0.1:5001 (varsayılan)
+ */
+function callScraper(url) {
+  const host = process.env.SCRAPER_HOST || '127.0.0.1';
+  const port = parseInt(process.env.SCRAPER_PORT || '5001', 10);
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ url });
+    const options = {
+      hostname: host,
+      port,
+      path: '/scrape',
+      method: 'POST',
+      headers: {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 90000,
+    };
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (res.statusCode >= 400) {
+            reject(new Error(json.error || `Scraper HTTP ${res.statusCode}`));
+          } else {
+            resolve(json);
+          }
+        } catch {
+          reject(new Error('Scraper geçersiz JSON döndürdü.'));
+        }
+      });
+    });
+    req.on('error',   reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Scraper zaman aşımı (90 sn).')); });
+    req.write(body);
+    req.end();
   });
 }
 

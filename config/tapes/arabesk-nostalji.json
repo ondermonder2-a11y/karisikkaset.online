@@ -1,0 +1,181 @@
+{
+  "label": "Arabesk Nostalji",
+  "category": "Arabesk",
+  "color": "#0aff1b",
+  "tracks": [
+    {
+      "title": "Yali yali",
+      "subtitle": "Neşe karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/turkish-boy/ne-e-karab-cek-yali-yali",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000055008920-59bxv1-t500x500.jpg"
+    },
+    {
+      "title": "Aşkın Kederi",
+      "subtitle": "Işıl German",
+      "soundcloudUrl": "https://soundcloud.com/isilgerman/a-k-n-kederi",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-2A3uTGPZU3Vj-0-t500x500.jpg"
+    },
+    {
+      "title": "Hoş Gör Aldırma",
+      "subtitle": "Neşe Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/nesekarabocek-music/hos-go-r-ald-rma",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-BWsBC4P04aj7-0-t500x500.jpg"
+    },
+    {
+      "title": "Gönül Dağı (2022 Remastered)",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/guldenkarabocek/g-n-l-da-2022-remastered",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-ZPKx6AAR20Rs-0-t500x500.jpg"
+    },
+    {
+      "title": "Adaletin Bu Mu Dünya (2022 Remastered)",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/guldenkarabocek/adaletin-bu-mu-duenya-2022",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-O0gShnaTGDSx-0-t500x500.jpg"
+    },
+    {
+      "title": "İşte Gidiyorum Çeşm-i Siyahım (2022 Remastered)",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/guldenkarabocek/te-gidiyorum-e-m-i-siyah-m",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-yeZZoDXPtfnz-0-t500x500.jpg"
+    },
+    {
+      "title": "Dilek Taşı",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/halilozturkci/g-lden-karab-cek-dilek-ta",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000058067618-d7resl-t500x500.jpg"
+    },
+    {
+      "title": "Derdimi Dökersem (2022 Remastered)",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/guldenkarabocek/derdimi-doekersem-2022",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-Yp9Jm4cvZt8j-0-t500x500.jpg"
+    },
+    {
+      "title": "Gülden Karaböcek Kır Çiçekleri",
+      "subtitle": "adem yücetaş",
+      "soundcloudUrl": "https://soundcloud.com/adem-y-ceta/g-lden-karab-cek-k-r-i-ekleri",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000057696640-0sxzh2-t500x500.jpg"
+    },
+    {
+      "title": "Oy Beni Beni (2022 Remastered)",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/guldenkarabocek/oy-beni-beni-2022-remastered",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-eZBLCUjlT1Qs-0-t500x500.jpg"
+    },
+    {
+      "title": "Kaderim",
+      "subtitle": "Gülden Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/albumdinlesene-co-cc-2/g-lden-karab-cek-kaderim",
+      "artworkUrl": "https://a1.sndcdn.com/images/default_avatar_large.png"
+    },
+    {
+      "title": "Günün Birinde",
+      "subtitle": "Neşe Karaböcek",
+      "soundcloudUrl": "https://soundcloud.com/nesekarabocek-music/guenuen-birinde-1",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-Ah6oPYRoj6pD-0-t500x500.jpg"
+    },
+    {
+      "title": "Nerdeysen (1974)",
+      "subtitle": "Semiramis Pekkan",
+      "soundcloudUrl": "https://soundcloud.com/msq3/e-1",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-ElSvPNUS0Y5yfsV2-7fkCrQ-t500x500.jpg"
+    },
+    {
+      "title": "Semiramis Pekkan-Olmaz Bu İş Olamaz",
+      "subtitle": "Ercan",
+      "soundcloudUrl": "https://soundcloud.com/ercangulen/semiramis-pekkan-olmaz-bu-is-olamaz",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000078081048-7sud3v-t500x500.jpg"
+    },
+    {
+      "title": "Semiramis Pekkan ~ O Karanlık Gecelerde",
+      "subtitle": "eskiturkfilmi",
+      "soundcloudUrl": "https://soundcloud.com/eskiturkfilmi/semiramis-pekkan-o-karanl-k",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000068889878-cjh7cd-t500x500.jpg"
+    },
+    {
+      "title": "Bana Yalan Söylediler",
+      "subtitle": "Semiramis Pekkan",
+      "soundcloudUrl": "https://soundcloud.com/bisusbiladerr/semiramis-pekkan-bana-yalan-s",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000107965959-pnkx2q-t500x500.jpg"
+    },
+    {
+      "title": "Dert Ortağım - Semiramis Pekkan",
+      "subtitle": "Semiramis Pekkan",
+      "soundcloudUrl": "https://soundcloud.com/nostaljiyesilcam/dert-ortagim",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-yLUil3pybHQ3seMN-Vdy08Q-t500x500.jpg"
+    },
+    {
+      "title": "Kamuran Akkor - Ask Eski Bir Yalan",
+      "subtitle": "Kamuran Akkor",
+      "soundcloudUrl": "https://soundcloud.com/serefhalicioglu/kamuran-akkor-ask-eski-bir-yalan",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000398137791-lhccph-t500x500.jpg"
+    },
+    {
+      "title": "Ah Neyleyim Gönül (1972)",
+      "subtitle": "Hülya",
+      "soundcloudUrl": "https://soundcloud.com/f4nksoulbrother/hulya-ah-neyleyim-gonul-1972",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-dJJHNuBqKDz4ZI2I-4ubHzg-t500x500.jpg"
+    },
+    {
+      "title": "Olmaz Olmaz Deme",
+      "subtitle": "Nil Burak",
+      "soundcloudUrl": "https://soundcloud.com/nilburak/olmaz-olmaz-deme",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-rOUx14SYUO45-0-t500x500.jpg"
+    },
+    {
+      "title": "Birisine Birisine",
+      "subtitle": "Nil Burak",
+      "soundcloudUrl": "https://soundcloud.com/nilburak/birisine-birisine",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-AwT37ZPhXNhM-0-t500x500.jpg"
+    },
+    {
+      "title": "Biliyorum Sensin O",
+      "subtitle": "Işıl German",
+      "soundcloudUrl": "https://soundcloud.com/isilgerman/biliyorum-sensin-o",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-ykzBIiVVtJ7j-0-t500x500.jpg"
+    },
+    {
+      "title": "Yolum Seninle",
+      "subtitle": "Moğollar",
+      "soundcloudUrl": "https://soundcloud.com/kosmahissi/mo-ollar-yolum-seninle",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000032346910-6zt71t-t500x500.jpg"
+    },
+    {
+      "title": "LP Sampler (FTNLP001)",
+      "subtitle": "Grazia",
+      "soundcloudUrl": "https://soundcloud.com/fortunarecords/o-grazia-o-lp-sampler-ftnlp001",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000050795732-f21vts-t500x500.jpg"
+    },
+    {
+      "title": "Adimiz Miskindir Bizim (Mark Wayward Edit)",
+      "subtitle": "Mazhar Ve Fuat",
+      "soundcloudUrl": "https://soundcloud.com/mark-wayward/mazhar-ve-fuat-adimiz-miskindir-bizim-mark-wayward-edit",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000164560620-t6w3fn-t500x500.jpg"
+    },
+    {
+      "title": "Elimde Duran Fotoğrafın",
+      "subtitle": "Bergen",
+      "soundcloudUrl": "https://soundcloud.com/eminebelemir/bergen-elimde-duran-fotografin",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000443716797-47ehnj-t500x500.jpg"
+    },
+    {
+      "title": "Sen Affetsen Ben Affetmem",
+      "subtitle": "Bergen",
+      "soundcloudUrl": "https://soundcloud.com/zoban/bergen-sen-affetsen-ben-affetmem",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000069005465-qxtb23-t500x500.jpg"
+    },
+    {
+      "title": "Yillar Affetmez",
+      "subtitle": "Bergen",
+      "soundcloudUrl": "https://soundcloud.com/trex1907/bergen-yillar-affetmez",
+      "artworkUrl": "https://i1.sndcdn.com/artworks-000020414140-70sfxr-t500x500.jpg"
+    },
+    {
+      "title": "BerGen Sev Yeter.mp3",
+      "subtitle": "Semih Sevimay",
+      "soundcloudUrl": "https://soundcloud.com/semih-sevimay/bergen-sev-yeter-mp3",
+      "artworkUrl": "https://i1.sndcdn.com/avatars-000089930222-qkxziq-t500x500.jpg"
+    }
+  ]
+}

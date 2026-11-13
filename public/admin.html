@@ -4,95 +4,336 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Yönetim | Karışık Kaset</title>
+  <title>Yönetim · Karışık Kaset</title>
   <link rel="stylesheet" href="/admin.css">
-  <script src="/admin.js" defer></script>
 </head>
 <body>
-  <main class="shell">
+
+  <!-- ── Toast bildirimleri ── -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="shell">
+
+    <!-- ── Topbar ── -->
     <header class="topbar">
-      <a class="brand" href="/">KARIŞIK KASET <span>YÖNETİM</span></a>
-      <button class="button button-muted hidden" id="logout-button" type="button">Güvenli çıkış</button>
+      <a class="brand" href="/">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M7 15h10"/></svg>
+        KARIŞIK KASET <span>YÖNETİM</span>
+      </a>
+      <div class="topbar-right">
+        <span class="topbar-user hidden" id="topbar-user"></span>
+        <a class="button button-muted btn-sm" href="/" target="_blank" rel="noopener">Player ↗</a>
+        <button class="button button-muted btn-sm hidden" id="logout-button" type="button">Çıkış</button>
+      </div>
     </header>
 
+    <!-- ══════════════ GİRİŞ PANELI ══════════════ -->
     <section class="panel login-panel" id="login-panel" aria-labelledby="login-title">
+      <div class="login-logo" aria-hidden="true">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M7 15h10"/></svg>
+      </div>
       <p class="eyebrow">Yönetici alanı</p>
       <h1 id="login-title">Admin girişi</h1>
-      <p class="muted">Radyo istasyonlarını, kasetleri ve şarkı isteklerini yönetin.</p>
       <form id="login-form" class="form-stack">
         <label>Kullanıcı adı<input name="username" autocomplete="username" required maxlength="120"></label>
         <label>Parola<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
-        <button class="button" type="submit">Giriş yap</button>
+        <button class="button" type="submit" id="login-btn">Giriş yap</button>
       </form>
       <p class="message" id="login-message" role="status" aria-live="polite"></p>
-      <p class="setup-note hidden" id="setup-note">Admin henüz sunucuda yapılandırılmamış. Sunucu yöneticisi <code>.env</code> içinde ADMIN_USERNAME, ADMIN_PASSWORD ve ADMIN_SESSION_SECRET tanımlamalı.</p>
+      <p class="setup-note hidden" id="setup-note">Admin henüz sunucuda yapılandırılmamış. <code>.env</code> içinde <code>ADMIN_USERNAME</code>, <code>ADMIN_PASSWORD</code> ve <code>ADMIN_SESSION_SECRET</code> tanımlanmalı.</p>
     </section>
 
-    <section class="workspace hidden" id="workspace">
-      <div class="page-heading">
-        <div><p class="eyebrow">Kontrol merkezi</p><h1>Karışık Kaset</h1></div>
-        <p class="muted">Kaynak bağlantıları üçüncü tarafların yayınına bağlıdır. Test, yalnızca sunucudan yanıt alınabildiğini gösterir.</p>
+    <!-- ══════════════ WORKSPACE ══════════════ -->
+    <div class="workspace hidden" id="workspace">
+
+      <!-- Dashboard istatistik kartları -->
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">📻</span>
+          <div>
+            <div class="stat-value" id="stat-stations">—</div>
+            <div class="stat-label">İstasyon</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">📼</span>
+          <div>
+            <div class="stat-value" id="stat-tapes">—</div>
+            <div class="stat-label">Kaset</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">🎵</span>
+          <div>
+            <div class="stat-value" id="stat-tracks">—</div>
+            <div class="stat-label">Toplam Parça</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">📬</span>
+          <div>
+            <div class="stat-value" id="stat-requests">—</div>
+            <div class="stat-label">Şarkı İsteği</div>
+          </div>
+        </div>
+        <div class="stat-card stat-health">
+          <span class="stat-icon" aria-hidden="true">🟢</span>
+          <div>
+            <div class="stat-value" id="stat-health">—</div>
+            <div class="stat-label">İstasyon Sağlığı</div>
+          </div>
+        </div>
       </div>
+
+      <!-- Tab navigasyonu -->
       <nav class="tabs" aria-label="Yönetim bölümleri">
-        <button class="tab active" type="button" data-tab="stations">Radyo istasyonları</button>
-        <button class="tab" type="button" data-tab="tapes">Kasetler ve parçalar</button>
-        <button class="tab" type="button" data-tab="requests">Şarkı istekleri</button>
+        <button class="tab active" type="button" data-tab="stations">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M4.93 4.93l1.41 1.41M19.07 4.93l-1.41 1.41M1 12h2M21 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 1v2M12 21v2"/></svg>
+          Radyo İstasyonları
+        </button>
+        <button class="tab" type="button" data-tab="tapes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M7 15h10"/></svg>
+          Kasetler
+        </button>
+        <button class="tab" type="button" data-tab="requests">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Şarkı İstekleri
+        </button>
       </nav>
+
+      <!-- Global mesaj -->
       <p class="message global-message" id="global-message" role="status" aria-live="polite"></p>
 
+      <!-- ───────── RADYO İSTASYONLARI ───────── -->
       <section class="tab-panel" id="stations-panel">
         <div class="section-heading">
-          <div><h2>Radyo istasyonları</h2><p class="muted">Bağlantıyı test edin; kaydettiğiniz değişiklikler player’da hemen kullanılır.</p></div>
+          <div>
+            <h2>Radyo İstasyonları</h2>
+            <p class="muted">Sürükleyerek sıralayın. Kaydettiğiniz değişiklikler player'da anında yansır.</p>
+          </div>
           <div class="station-actions">
-            <button class="button button-secondary" id="check-all-stations" type="button">Tümünü kontrol et</button>
-            <button class="button" id="save-stations" type="button">İstasyonları kaydet</button>
+            <button class="button button-secondary btn-sm" id="search-radio-btn" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Radyo Ara
+            </button>
+            <button class="button button-secondary btn-sm" id="check-all-stations" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Tümünü kontrol et
+            </button>
+            <button class="button btn-sm" id="save-stations" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Kaydet <kbd>Ctrl+S</kbd>
+            </button>
           </div>
         </div>
-        <p class="health-progress" id="station-check-progress" role="status" aria-live="polite">Son kontrol durumları yükleniyor…</p>
-        <form class="add-form" id="add-station-form">
-          <label>Frekans<input name="frequency" type="number" min="88" max="108" step="0.1" placeholder="95.0" required></label>
-          <label>İstasyon adı<input name="name" maxlength="120" placeholder="İstasyon adı" required></label>
-          <label>Tür<input name="genre" maxlength="80" placeholder="Müzik türü"></label>
-          <label class="wide">Yayın bağlantısı<input name="streamUrl" type="url" maxlength="2048" placeholder="https://..." required></label>
-          <button class="button button-secondary" type="submit">Listeye ekle</button>
-        </form>
-        <div class="card-list" id="stations-list" aria-live="polite"></div>
+
+        <p class="health-progress" id="station-check-progress" role="status" aria-live="polite">
+          Son kontrol durumları yükleniyor…
+        </p>
+
+        <!-- Yeni istasyon ekleme formu -->
+        <details class="add-form-wrap" id="add-station-wrap">
+          <summary class="add-form-toggle">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Yeni istasyon ekle
+          </summary>
+          <form class="add-form" id="add-station-form">
+            <label>MHz<input name="frequency" type="number" min="88" max="108" step="0.1" placeholder="95.0" required></label>
+            <label>İstasyon adı<input name="name" maxlength="120" placeholder="İstasyon adı" required></label>
+            <label>Tür<input name="genre" maxlength="80" placeholder="Müzik türü"></label>
+            <label class="wide">Yayın bağlantısı<input name="streamUrl" type="url" maxlength="2048" placeholder="https://..." required></label>
+            <button class="button button-secondary" type="submit">Listeye ekle</button>
+          </form>
+        </details>
+
+        <!-- Sürükle-bırak istasyon listesi -->
+        <div class="card-list sortable" id="stations-list" aria-live="polite"></div>
       </section>
 
+      <!-- Radyo Arama Modalı: sekme panellerinden bağımsız olarak workspace seviyesinde tutulur -->
+      <dialog id="radio-search-modal" class="modal">
+        <div class="modal-inner" style="width:min(680px,95vw)">
+          <h3>📻 Radyo İstasyonu Ara</h3>
+          <p class="muted">radio-browser.info veri tabanında arama yapın. Bulunan istasyonları seçip mevcut listeye ekleyebilirsiniz.</p>
+
+          <div class="radio-search-form">
+            <label>İstasyon adı
+              <input id="rs-name" type="search" placeholder="Kral FM, TRT, BBC…" maxlength="100">
+            </label>
+            <label>Ülke kodu
+              <input id="rs-country" type="text" placeholder="TR, GB, DE…" maxlength="2" style="width:70px;text-transform:uppercase">
+            </label>
+            <label>Etiket
+              <input id="rs-tag" type="text" placeholder="turkish, pop, jazz…" maxlength="60">
+            </label>
+            <button class="button btn-sm" id="rs-search-btn" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Ara
+            </button>
+          </div>
+
+          <div id="rs-status" class="rs-status"></div>
+          <div id="rs-results" class="rs-results"></div>
+
+          <div class="modal-actions">
+            <button class="button" id="rs-add-selected" type="button" disabled>
+              Seçilenleri ekle (<span id="rs-selected-count">0</span>)
+            </button>
+            <button class="button button-muted" id="rs-close" type="button">Kapat</button>
+          </div>
+        </div>
+      </dialog>
+
+      <!-- ───────── KASETLER ───────── -->
       <section class="tab-panel hidden" id="tapes-panel">
-        <div class="section-heading">
-          <div><h2>Kasetler ve parçalar</h2><p class="muted">Kaset ve SoundCloud bağlantılarını düzenleyin.</p></div>
-          <button class="button" id="new-tape" type="button">Yeni kaset</button>
+        <div class="tapes-layout">
+
+          <!-- Sol: kaset listesi + önizleme -->
+          <div class="tapes-sidebar">
+            <div class="section-heading">
+              <h2>Kasetler</h2>
+              <button class="button btn-sm" id="new-tape" type="button">+ Yeni</button>
+          <button class="button button-secondary btn-sm" id="import-playlist-btn" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            SC Playlist'ten Al
+          </button>
+            </div>
+
+            <!-- Kaset rafı önizlemesi -->
+            <div class="tape-shelf-preview" id="tape-shelf-preview" aria-label="Kaset rafı önizlemesi">
+              <!-- JS tarafından doldurulur -->
+            </div>
+          </div>
+
+          <!-- Sağ: kaset düzenleme formu -->
+          <div class="tapes-editor">
+            <div class="tapes-editor-header">
+              <h3 id="tape-editor-title">Kaset Düzenle</h3>
+              <div style="display:flex;gap:8px">
+                <button class="button button-secondary btn-sm" id="validate-tape" type="button" title="Erişilemeyen parçaları bul ve temizle">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Doğrula
+                </button>
+                <button class="button btn-sm" type="button" id="save-tape">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                  Kaydet
+                </button>
+                <button class="button button-danger btn-sm hidden" type="button" id="delete-tape">Sil</button>
+              </div>
+            </div>
+
+            <form id="tape-form" class="tape-edit-form">
+              <div class="tape-meta-row">
+                <label>Kaset adı<input name="label" maxlength="120" required placeholder="90'lar Karışık"></label>
+                <label>Kategori<input name="category" maxlength="80" required placeholder="Pop, Rock…"></label>
+                <label class="color-label">
+                  Renk
+                  <div class="color-wrap">
+                    <input name="color" type="color" value="#1a237e" required>
+                    <span class="color-hex" id="color-hex">#1a237e</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="tracks-heading">
+                <div>
+                  <h4>Parçalar</h4>
+                  <span class="muted" id="track-count-label"></span>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="button button-secondary btn-sm" id="import-tracks" type="button">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Toplu içe aktar
+                  </button>
+                  <button class="button button-secondary btn-sm" id="add-track" type="button">+ Parça ekle</button>
+                </div>
+              </div>
+
+              <!-- Parçalar (sürükle-bırak) -->
+              <div class="card-list sortable track-sortable" id="tracks-list"></div>
+            </form>
+          </div>
         </div>
-        <label class="tape-picker">Düzenlenecek kaset
-          <select id="tape-picker"></select>
-        </label>
-        <form id="tape-form" class="form-stack">
-          <div class="add-form tape-fields">
-            <label>Kaset adı<input name="label" maxlength="120" required></label>
-            <label>Kategori<input name="category" maxlength="80" required></label>
-            <label>Renk<input name="color" type="color" value="#1a237e" required></label>
+
+        <!-- Toplu URL içe aktarma modalı -->
+        <dialog id="import-modal" class="modal">
+          <div class="modal-inner">
+            <h3>Toplu Parça İçe Aktar</h3>
+            <p class="muted">Her satıra bir SoundCloud URL'si yapıştırın. Parça adı ve sanatçı otomatik oluşturulur (düzenleyebilirsiniz).</p>
+            <textarea id="import-textarea" rows="10" placeholder="https://soundcloud.com/...&#10;https://soundcloud.com/..."></textarea>
+            <div class="modal-actions">
+              <button class="button" id="import-confirm" type="button">İçe aktar</button>
+              <button class="button button-muted" id="import-cancel" type="button">İptal</button>
+            </div>
           </div>
-          <div class="section-heading tracks-heading">
-            <div><h3>Parçalar</h3><span class="muted" id="track-count"></span></div>
-            <button class="button button-secondary" id="add-track" type="button">Parça ekle</button>
+        </dialog>
+
+        <dialog id="sc-import-modal" class="modal">
+          <div class="modal-inner">
+            <h3>🎵 SoundCloud Playlist'ten Kaset Oluştur</h3>
+            <p class="muted">Herkese açık bir SoundCloud playlist URL'si girin. Sunucu sayfayı çekip tüm parçaları otomatik olarak içe aktarır.</p>
+
+            <!-- Scraper durum bandı -->
+            <div id="scraper-status-bar" class="scraper-status-bar">
+              <span id="scraper-status-icon">⏳</span>
+              <span id="scraper-status-text">Scraper servisi kontrol ediliyor…</span>
+              <code id="scraper-status-cmd" class="hidden">python sc_scraper.py</code>
+            </div>
+
+            <div class="form-stack" style="margin-top:14px">
+              <label>Playlist URL'si
+                <input id="sc-import-url" type="url" maxlength="2048"
+                       placeholder="https://soundcloud.com/user/sets/playlist-adi">
+              </label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <label>Kaset adı
+                  <input id="sc-import-label" type="text" maxlength="120" placeholder="90'lar Karışık">
+                </label>
+                <label>Kategori
+                  <input id="sc-import-category" type="text" maxlength="80" placeholder="Pop">
+                </label>
+              </div>
+              <label style="display:flex;align-items:center;gap:10px;flex-direction:row">
+                Renk
+                <input id="sc-import-color" type="color" value="#1a237e" style="width:50px;height:36px;padding:3px">
+                <span id="sc-import-color-hex" style="font-family:monospace;font-size:0.82rem;color:var(--text-dim)">#1a237e</span>
+              </label>
+            </div>
+            <div id="sc-import-status" class="sc-import-status"></div>
+            <div class="modal-actions">
+              <button class="button" id="sc-import-confirm" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                İçe aktar ve kaseti oluştur
+              </button>
+              <button class="button button-muted" id="sc-import-cancel" type="button">İptal</button>
+            </div>
           </div>
-          <div class="card-list" id="tracks-list"></div>
-          <div class="actions">
-            <button class="button" type="submit" id="save-tape">Kaseti kaydet</button>
-            <button class="button button-danger hidden" type="button" id="delete-tape">Kaseti sil</button>
-          </div>
-        </form>
+        </dialog>
       </section>
 
+      <!-- ───────── ŞARKI İSTEKLERİ ───────── -->
       <section class="tab-panel hidden" id="requests-panel">
         <div class="section-heading">
-          <div><h2>Şarkı istekleri</h2><p class="muted">En son 500 istek görüntülenir.</p></div>
-          <button class="button button-secondary" id="refresh-requests" type="button">Yenile</button>
+          <div>
+            <h2>Şarkı İstekleri</h2>
+            <p class="muted">En son 500 istek görüntülenir.</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input class="search-input" id="requests-search" type="search" placeholder="Ara…" aria-label="İsteklerde ara">
+            <button class="button button-secondary btn-sm" id="export-requests" type="button">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              CSV indir
+            </button>
+            <button class="button button-secondary btn-sm" id="refresh-requests" type="button">Yenile</button>
+          </div>
         </div>
+        <div class="request-stats" id="request-stats"></div>
         <div class="request-list" id="requests-list" aria-live="polite"></div>
       </section>
-    </section>
-  </main>
+
+    </div><!-- /workspace -->
+  </div><!-- /shell -->
+
+  <script src="/admin.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 230" role="img" aria-label="El sallayan kaset robotu">
+  <style>
+    .right-arm-wave { transform-origin: 168px 98px; animation: waveIntermittent 7s ease-in-out infinite; }
+    .robot-body-anim { transform-origin: 110px 185px; animation: robotGroove 2.4s ease-in-out infinite; }
+    .reel-left, .reel-right { animation: spinEyeReel 6s linear infinite; }
+    .antenna-halo { transform-origin: 110px 20px; animation: beaconPulse 1.8s ease-in-out infinite; }
+    .shadow-pulse { transform-origin: 110px 212px; animation: shadowScale 2.4s ease-in-out infinite; }
+    @keyframes waveIntermittent {
+      0%, 55%, 100% { transform: rotate(0deg); }
+      62% { transform: rotate(-108deg); }
+      67% { transform: rotate(-82deg); }
+      72% { transform: rotate(-112deg); }
+      77% { transform: rotate(-82deg); }
+      82% { transform: rotate(-108deg); }
+      90% { transform: rotate(0deg); }
+    }
+    @keyframes robotGroove {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-3px) rotate(-1.5deg); }
+      75% { transform: translateY(-3px) rotate(1.5deg); }
+    }
+    @keyframes spinEyeReel { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes beaconPulse {
+      0%, 100% { opacity: .45; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+    @keyframes shadowScale {
+      0%, 100% { transform: scaleX(1); opacity: .45; }
+      50% { transform: scaleX(.92); opacity: .3; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .right-arm-wave, .robot-body-anim, .reel-left, .reel-right, .antenna-halo, .shadow-pulse { animation: none !important; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="goldBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7d586"/><stop offset="45%" stop-color="#d29647"/><stop offset="100%" stop-color="#8b5825"/>
+    </linearGradient>
+    <linearGradient id="creamLabel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5ecd4"/><stop offset="100%" stop-color="#dfd2b5"/>
+    </linearGradient>
+    <linearGradient id="goldLimb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5d487"/><stop offset="100%" stop-color="#be843b"/>
+    </linearGradient>
+    <radialGradient id="antennaGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff6b4a" stop-opacity="1"/><stop offset="45%" stop-color="#e84323" stop-opacity=".7"/><stop offset="100%" stop-color="#e84323" stop-opacity="0"/>
+    </radialGradient>
+    <g id="eye-reel">
+      <circle cx="0" cy="0" r="14.5" fill="#e9dec3" stroke="#181715" stroke-width="1.5"/>
+      <circle cx="0" cy="0" r="6.5" fill="#181715"/>
+      <g fill="#181715">
+        <rect x="-1.3" y="-11.5" width="2.6" height="4" rx=".6"/><rect x="-1.3" y="7.5" width="2.6" height="4" rx=".6"/>
+        <rect x="-1.3" y="-11.5" width="2.6" height="4" rx=".6" transform="rotate(60)"/><rect x="-1.3" y="7.5" width="2.6" height="4" rx=".6" transform="rotate(60)"/>
+        <rect x="-1.3" y="-11.5" width="2.6" height="4" rx=".6" transform="rotate(120)"/><rect x="-1.3" y="7.5" width="2.6" height="4" rx=".6" transform="rotate(120)"/>
+      </g>
+    </g>
+  </defs>
+  <ellipse class="shadow-pulse" cx="110" cy="212" rx="46" ry="7" fill="rgba(0,0,0,.45)"/>
+  <g class="robot-body-anim">
+    <g class="antenna-group">
+      <rect x="107" y="24" width="6" height="22" rx="3" fill="#463322"/>
+      <circle class="antenna-halo" cx="110" cy="20" r="16" fill="url(#antennaGlow)"/>
+      <circle cx="110" cy="20" r="6" fill="#f05436" stroke="#361c14" stroke-width="1.5"/>
+      <circle cx="108" cy="18" r="1.8" fill="#ffb8a8"/>
+    </g>
+    <g class="left-arm">
+      <path d="M52 98 32 118l14 17" fill="none" stroke="#99622b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="46" cy="136" r="9.5" fill="url(#goldLimb)" stroke="#2c1d11" stroke-width="2"/>
+    </g>
+    <g class="right-arm-wave">
+      <path d="m168 98 20 20-14 17" fill="none" stroke="#99622b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="174" cy="136" r="9.5" fill="url(#goldLimb)" stroke="#2c1d11" stroke-width="2"/>
+    </g>
+    <rect x="85" y="168" width="10" height="22" rx="4" fill="#3a2718"/>
+    <rect x="75" y="185" width="24" height="11" rx="5.5" fill="url(#goldLimb)" stroke="#2c1d11" stroke-width="1.8"/>
+    <rect x="125" y="168" width="10" height="22" rx="4" fill="#3a2718"/>
+    <rect x="121" y="185" width="24" height="11" rx="5.5" fill="url(#goldLimb)" stroke="#2c1d11" stroke-width="1.8"/>
+    <g class="cassette-torso">
+      <rect x="46" y="46" width="128" height="126" rx="14" fill="url(#goldBody)" stroke="#26190e" stroke-width="3.5"/>
+      <circle cx="56" cy="56" r="2.5" fill="#46301b"/><circle cx="164" cy="56" r="2.5" fill="#46301b"/>
+      <circle cx="56" cy="162" r="2.5" fill="#46301b"/><circle cx="164" cy="162" r="2.5" fill="#46301b"/>
+      <path d="m62 54 96 0 6 6v6H56v-6z" fill="url(#creamLabel)" opacity=".9"/>
+      <line x1="64" y1="60" x2="156" y2="60" stroke="#9e8a68"/>
+      <rect x="58" y="70" width="104" height="52" rx="10" fill="#18191b" stroke="#2c1d11" stroke-width="2"/>
+      <g transform="translate(88 92)"><use href="#eye-reel" class="reel-left"/></g>
+      <g transform="translate(132 92)"><use href="#eye-reel" class="reel-right"/></g>
+      <path d="M88 111q22 9 44 0" fill="none" stroke="#f5d487" stroke-width="3.2" stroke-linecap="round"/>
+      <polygon points="66,172 74,154 146,154 154,172" fill="#6b421b" stroke="#26190e" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="84" cy="164" r="3" fill="#18191b"/><circle cx="136" cy="164" r="3" fill="#18191b"/>
+      <rect x="104" y="161" width="12" height="5" rx="2" fill="#18191b"/>
+      <rect x="85" y="128" width="50" height="22" rx="5" fill="#18191b" stroke="#2c1d11" stroke-width="1.5"/>
+      <rect x="99" y="132" width="22" height="14" rx="3" fill="#e9dec3"/>
+      <line x1="106" y1="134" x2="106" y2="144" stroke="#8b5825" stroke-width="1.2"/>
+      <line x1="110" y1="133" x2="110" y2="145" stroke="#8b5825" stroke-width="1.2"/>
+      <line x1="114" y1="134" x2="114" y2="144" stroke="#8b5825" stroke-width="1.2"/>
+    </g>
+  </g>
+</svg>

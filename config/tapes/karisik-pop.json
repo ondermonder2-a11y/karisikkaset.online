@@ -1,0 +1,72 @@
+{
+  "label": "Karışık Pop",
+  "category": "POP",
+  "color": "#eb000c",
+  "tracks": [
+    {
+      "title": "David Guetta, Bebe Rexha, J Balvin - Say My Name",
+      "subtitle": "TRAPCLOUD",
+      "soundcloudUrl": "https://soundcloud.com/trapclouds/david-guetta-bebe-rexha-j-balvin-say-my-name"
+    },
+    {
+      "title": "FRIENDS",
+      "subtitle": "marshmello",
+      "soundcloudUrl": "https://soundcloud.com/marshmellomusic/friends"
+    },
+    {
+      "title": "Makina (Emir)",
+      "subtitle": "Eman Wahba",
+      "soundcloudUrl": "https://soundcloud.com/emy-wahba/makina-emir"
+    },
+    {
+      "title": "Major Lazer & DJ Snake - Lean On (feat. MØ)",
+      "subtitle": "Major Lazer",
+      "soundcloudUrl": "https://soundcloud.com/majorlazer/major-lazer-dj-snake-lean-on-feat-mo"
+    },
+    {
+      "title": "Edis - Çok Çok",
+      "subtitle": "Turkish Music",
+      "soundcloudUrl": "https://soundcloud.com/user-349521992/edis-cok-cok"
+    },
+    {
+      "title": "chantaje",
+      "subtitle": "piefarm",
+      "soundcloudUrl": "https://soundcloud.com/abi-guzman-579031857/shakira-chantaje-sped-up"
+    },
+    {
+      "title": "Cem Belevi - Aç Kollarını",
+      "subtitle": "Ömer Faruk Bütün",
+      "soundcloudUrl": "https://soundcloud.com/oemer-faruk-buetuen/cem-belevi-ac-kollarini"
+    },
+    {
+      "title": "Murat Dalkılıç - LEYLA",
+      "subtitle": "Palem",
+      "soundcloudUrl": "https://soundcloud.com/user-558145804/murat-dalkilic-leyla"
+    },
+    {
+      "title": "Uğur Etiler - Yaktım Gemileri",
+      "subtitle": "Uğur Etiler",
+      "soundcloudUrl": "https://soundcloud.com/uguretiler/ugur-etiler-yaktim-gemileri"
+    },
+    {
+      "title": "No Lie - Sean Paul, Jaymes Young, Doja Cat ft SZA, Dua Lipa..",
+      "subtitle": "HEY YOU KINDA SUS",
+      "soundcloudUrl": "https://soundcloud.com/user-772712375/no-lie-sean-paul-jaymes-young"
+    },
+    {
+      "title": "Stromae - Papaoutai",
+      "subtitle": "Casablanca Records",
+      "soundcloudUrl": "https://soundcloud.com/casablancarecs/stromae-papaoutai"
+    },
+    {
+      "title": "Murat Dalkılıç Feat. Emrah Karaduman  - Kırk Yılda Bir Gibisin",
+      "subtitle": "revolsea",
+      "soundcloudUrl": "https://soundcloud.com/revolsea/murat-dalkilic-feat-emrah-karaduman-kirk-yilda-bir-gibisin"
+    },
+    {
+      "title": "Murat Dalkılıç - Bir Hayli",
+      "subtitle": "revolsea",
+      "soundcloudUrl": "https://soundcloud.com/revolsea/murat-dalkilic-bir-hayli"
+    }
+  ]
+}

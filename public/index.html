@@ -8,7 +8,7 @@
   <meta name="robots" content="index, follow, max-image-preview:large" />
   <meta name="theme-color" content="#51483d" />
   <link rel="canonical" href="https://karisikkaset.online/" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=cassette-robot-maker-20261113-6" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="tr_TR" />
   <meta property="og:site_name" content="Karışık Kaset" />
@@ -30,16 +30,8 @@
       "inLanguage": "tr"
     }
   </script>
-  <script>
-    (function () {
-      var script = document.createElement('script');
-      script.src = "https://web-analytics.ondernet.net/assets/js/tracker.js";
-      script.setAttribute('data-api-key', "01eee571451141df65c6265e42c13e692e188903b52932c450a50d3e8859d3ad");
-      script.setAttribute('data-api-url', "https://web-analytics.ondernet.net/api");
-      script.async = true;
-      document.head.appendChild(script);
-    })();
-  </script>
+
+
 </head>
 <body>
 
@@ -48,38 +40,425 @@
   ════════════════════════════════════════════════════ -->
   <main class="app-bg">
 
+    <div class="cassette-robot-launcher cassette-robot-launcher-desktop">
+      <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="" aria-hidden="true" />
+      <span class="robot-label">KASETİNİ YAP</span>
+      <button class="robot-open-button" type="button" data-open-cassette-builder aria-haspopup="dialog" aria-controls="cassette-builder-dialog" aria-label="Kaset oluşturucuyu aç"></button>
+      <button class="robot-hide-antenna" type="button" data-hide-cassette-robot title="Antene tıkla: robotu gizle" aria-label="Antene tıkla: robotu gizle"></button>
+    </div>
+    <button class="robot-restore-button robot-restore-desktop" type="button" data-show-cassette-robot title="Kaset robotunu tekrar göster" aria-label="Kaset robotunu tekrar göster">
+      <span class="robot-restore-icon" aria-hidden="true"></span><span>ROBOTU GÖSTER</span>
+    </button>
+
     <div class="room-decor" id="room-decor">
-      <figure class="wall-frame wall-frame-right">
-        <img id="wall-picture-right" alt="" />
+      <svg class="wall-perspective-grid" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
+        <g>
+          <path d="M500 165L0 600 M500 165L125 600 M500 165L250 600 M500 165L375 600 M500 165L625 600 M500 165L750 600 M500 165L875 600 M500 165L1000 600" />
+          <path d="M0 235Q500 265 1000 235 M0 305Q500 325 1000 305 M0 385Q500 398 1000 385 M0 475Q500 480 1000 475 M0 570H1000" />
+        </g>
+      </svg>
+      <figure class="wall-clock" aria-label="Klasik duvar saati">
+        <div class="wall-clock-face" aria-hidden="true">
+          <span class="wall-clock-number wall-clock-number-12">12</span>
+          <span class="wall-clock-number wall-clock-number-3">3</span>
+          <span class="wall-clock-number wall-clock-number-6">6</span>
+          <span class="wall-clock-number wall-clock-number-9">9</span>
+          <span class="wall-clock-hand wall-clock-hour"></span>
+          <span class="wall-clock-hand wall-clock-minute"></span>
+          <span class="wall-clock-hand wall-clock-second"></span>
+          <span class="wall-clock-pin"></span>
+        </div>
       </figure>
-    </div>
 
-    <div class="wall-switch-plate" role="group" aria-label="Duvar anahtarı">
-      <button class="switch-segment switch-segment-top-left" id="fullscreen-switch" type="button" aria-label="Tam ekranı aç" title="Tam ekran">
-        <span class="switch-segment-icon" aria-hidden="true">⛶</span>
-      </button>
-      <button class="switch-segment switch-segment-top-right" type="button" aria-label="Bu anahtarın işlevi henüz yok" title="İşlev daha sonra eklenecek"></button>
-      <button class="switch-segment switch-segment-bottom-left" type="button" aria-label="Bu anahtarın işlevi henüz yok" title="İşlev daha sonra eklenecek"></button>
-      <button class="switch-segment switch-segment-bottom-right" id="player-power-switch" type="button" aria-pressed="true" aria-label="Player elektriğini kes" title="Player elektriğini kes">
-        <span class="switch-segment-icon" aria-hidden="true">⏻</span>
-      </button>
-      <button class="wall-switch-center" id="room-light-switch" type="button" aria-pressed="false" aria-label="Oda ışığını kapat" title="Oda ışığını kapat">
-        <span class="wall-switch-dial" aria-hidden="true"></span>
-      </button>
-    </div>
+      <div class="wall-column">
+        <figure class="wall-frame wall-frame-right">
+          <img id="wall-picture-right" alt="" />
+        </figure>
 
-    <aside class="request-board" aria-label="Site bağlantı panosu">
-      <nav class="request-board-links" aria-label="Site bağlantıları">
-        <button class="request-note request-note-primary" id="open-song-request" type="button"><span class="request-note-icon" aria-hidden="true">♫</span><span>Şarkı iste</span></button>
-        <button class="request-note" id="open-radio-collection" type="button" aria-haspopup="dialog"><span class="request-note-icon" aria-hidden="true">◉</span><span>Radyo istasyonları</span></button>
-        <button class="request-note" id="open-tape-collection" type="button" aria-haspopup="dialog"><span class="request-note-icon" aria-hidden="true">▣</span><span>Kaset koleksiyonu</span></button>
-        <a class="request-note request-note-whatsapp" data-share-provider="whatsapp" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp ile paylaş"><span class="request-note-icon" aria-hidden="true">WA</span><span>WhatsApp</span></a>
-        <a class="request-note request-note-facebook" data-share-provider="facebook" target="_blank" rel="noopener noreferrer" aria-label="Facebook'ta paylaş"><span class="request-note-icon" aria-hidden="true">f</span><span>Facebook</span></a>
-        <a class="request-note request-note-x" data-share-provider="x" target="_blank" rel="noopener noreferrer" aria-label="X'te paylaş"><span class="request-note-icon" aria-hidden="true">X</span><span>X'te paylaş</span></a>
-        <a class="request-note request-note-telegram" data-share-provider="telegram" target="_blank" rel="noopener noreferrer" aria-label="Telegram ile paylaş"><span class="request-note-icon" aria-hidden="true">➤</span><span>Telegram</span></a>
-        <button class="request-note request-note-share" id="copy-site-link" type="button"><span class="request-note-icon" aria-hidden="true">↗</span><span>Linki kopyala</span></button>
-      </nav>
-    </aside>
+        <div class="svg-corkboard-wrapper" aria-label="Mantar pano">
+          <svg viewBox="0 0 340 215" width="100%" xmlns="http://www.w3.org/2000/svg" class="corkboard-svg" aria-hidden="true">
+            <defs>
+              <filter id="boardWallShadow" x="-10%" y="-10%" width="125%" height="130%">
+                <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.4" />
+              </filter>
+              <filter id="postitShadow" x="-15%" y="-15%" width="135%" height="140%">
+                <feDropShadow dx="1" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.28" />
+              </filter>
+              <filter id="pinShadow" x="-30%" y="-30%" width="180%" height="180%">
+                <feDropShadow dx="1.5" dy="2" stdDeviation="1.2" flood-color="#000000" flood-opacity="0.45" />
+              </filter>
+              <linearGradient id="corkFrameWood" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#d4a373" />
+                <stop offset="45%" stop-color="#b58354" />
+                <stop offset="100%" stop-color="#875a32" />
+              </linearGradient>
+              <pattern id="corkTexture" width="24" height="24" patternUnits="userSpaceOnUse">
+                <rect width="24" height="24" fill="#c99e6b" />
+                <circle cx="4" cy="5" r="1.2" fill="#a87c49" opacity="0.55" />
+                <circle cx="15" cy="3" r="0.9" fill="#e0b989" opacity="0.6" />
+                <circle cx="19" cy="14" r="1.4" fill="#9c703e" opacity="0.45" />
+                <circle cx="8" cy="18" r="1.1" fill="#dfb786" opacity="0.5" />
+                <circle cx="2" cy="13" r="0.8" fill="#8c6030" opacity="0.4" />
+                <circle cx="12" cy="10" r="1.5" fill="#b38652" opacity="0.5" />
+              </pattern>
+              <linearGradient id="yellowNote" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#f7e38d" />
+                <stop offset="82%" stop-color="#fcee9e" />
+                <stop offset="100%" stop-color="#fff5b8" />
+              </linearGradient>
+              <linearGradient id="mintNote" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#bfe3b4" />
+                <stop offset="82%" stop-color="#cdf0c2" />
+                <stop offset="100%" stop-color="#dcf7d4" />
+              </linearGradient>
+              <linearGradient id="pinkNote" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#f5b7b1" />
+                <stop offset="82%" stop-color="#fadbd8" />
+                <stop offset="100%" stop-color="#fdecea" />
+              </linearGradient>
+              <linearGradient id="blueNote" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#aed6f1" />
+                <stop offset="82%" stop-color="#d6eaf8" />
+                <stop offset="100%" stop-color="#ebf5fb" />
+              </linearGradient>
+              <linearGradient id="peachNote" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#f8c471" />
+                <stop offset="82%" stop-color="#fdebd0" />
+                <stop offset="100%" stop-color="#fef5e7" />
+              </linearGradient>
+            </defs>
+
+            <g filter="url(#boardWallShadow)">
+              <rect x="6" y="6" width="328" height="203" rx="6" fill="url(#corkFrameWood)" stroke="#633f1f" stroke-width="1" />
+              <rect x="14" y="14" width="312" height="187" rx="3" fill="url(#corkTexture)" stroke="#5c3a1d" stroke-width="1.5" />
+              <rect x="15" y="15" width="310" height="185" rx="2" fill="none" stroke="#000000" stroke-opacity="0.22" stroke-width="3" />
+            </g>
+
+            <g class="cork-postit" id="open-song-request" data-action="song-request" tabindex="0" role="button" aria-label="Şarkı iste" transform="translate(22, 23) rotate(-2.5)" filter="url(#postitShadow)">
+              <path d="M 0,0 L 66,0 L 67,74 Q 33,71 0,74 Z" fill="url(#yellowNote)" />
+              <rect x="0" y="0" width="66" height="13" fill="#000000" fill-opacity="0.05" />
+              <circle cx="33" cy="31" r="11" fill="none" stroke="#3d351b" stroke-width="1.2" />
+              <text x="33" y="35" fill="#3d351b" font-size="11" text-anchor="middle">♫</text>
+              <text class="postit-label" x="33" y="54" fill="#2b2615" font-family="'Segoe UI', sans-serif" font-size="8.5" font-weight="700" text-anchor="middle">Şarkı iste</text>
+              <g transform="translate(33, 6)" filter="url(#pinShadow)">
+                <circle cx="0" cy="0" r="4" fill="#c0392b" />
+                <circle cx="-1" cy="-1" r="1.4" fill="#ff7675" />
+              </g>
+            </g>
+
+            <g class="cork-postit" id="open-radio-collection" data-action="radio-stations" tabindex="0" role="button" aria-label="Radyo istasyonları" transform="translate(97, 21) rotate(1.8)" filter="url(#postitShadow)">
+              <path d="M 0,0 L 66,0 L 66,74 Q 33,72 -1,74 Z" fill="url(#mintNote)" />
+              <rect x="0" y="0" width="66" height="13" fill="#000000" fill-opacity="0.04" />
+              <circle cx="33" cy="31" r="11" fill="none" stroke="#1e3b24" stroke-width="1.2" />
+              <circle cx="33" cy="31" r="3" fill="#1e3b24" />
+              <path d="M 27,27 Q 25,31 27,35 M 39,27 Q 41,31 39,35" fill="none" stroke="#1e3b24" stroke-width="1.2" />
+              <text class="postit-label" x="33" y="52" fill="#182e1d" font-family="'Segoe UI', sans-serif" font-size="8" font-weight="700" text-anchor="middle">Radyo</text>
+              <text class="postit-label" x="33" y="62" fill="#182e1d" font-family="'Segoe UI', sans-serif" font-size="8" font-weight="700" text-anchor="middle">istasyonları</text>
+              <g transform="translate(33, 6)" filter="url(#pinShadow)">
+                <circle cx="0" cy="0" r="4" fill="#2980b9" />
+                <circle cx="-1" cy="-1" r="1.4" fill="#74b9ff" />
+              </g>
+            </g>
+
+            <g class="cork-postit" id="open-tape-collection" data-action="cassette-collection" tabindex="0" role="button" aria-label="Kaset koleksiyonu" transform="translate(173, 24) rotate(-1.5)" filter="url(#postitShadow)">
+              <path d="M 0,0 L 66,0 L 67,74 Q 33,71 0,74 Z" fill="url(#pinkNote)" />
+              <rect x="0" y="0" width="66" height="13" fill="#000000" fill-opacity="0.04" />
+              <circle cx="33" cy="31" r="11" fill="none" stroke="#4a1c1c" stroke-width="1.2" />
+              <rect x="27" y="27" width="12" height="8" rx="1" fill="none" stroke="#4a1c1c" stroke-width="1.1" />
+              <circle cx="30.5" cy="31" r="1.2" fill="#4a1c1c" />
+              <circle cx="35.5" cy="31" r="1.2" fill="#4a1c1c" />
+              <text class="postit-label" x="33" y="52" fill="#3b1515" font-family="'Segoe UI', sans-serif" font-size="8" font-weight="700" text-anchor="middle">Kaset</text>
+              <text class="postit-label" x="33" y="62" fill="#3b1515" font-family="'Segoe UI', sans-serif" font-size="8" font-weight="700" text-anchor="middle">koleksiyonu</text>
+              <g transform="translate(33, 6)" filter="url(#pinShadow)">
+                <circle cx="0" cy="0" r="4" fill="#d35400" />
+                <circle cx="-1" cy="-1" r="1.4" fill="#f39c12" />
+              </g>
+            </g>
+
+            <g id="live-listener-note" transform="translate(22, 112) rotate(1.4)" filter="url(#postitShadow)" aria-label="Canlı dinleyici sayısı">
+              <path d="M 0,0 L 140,0 L 141,74 Q 70,71 0,74 Z" fill="url(#blueNote)" />
+              <rect x="0" y="0" width="140" height="13" fill="#000000" fill-opacity="0.04" />
+              <circle cx="18" cy="28" r="8" fill="#2d6a8a" opacity="0.18" />
+              <circle id="live-listener-dot" cx="18" cy="28" r="4" fill="#6b7280" />
+              <path d="M 29,25 Q 34,20 39,25 M 31,30 Q 34,27 37,30" fill="none" stroke="#24495c" stroke-width="1.1" stroke-linecap="round" />
+              <text x="85" y="22" fill="#19384a" font-family="'Segoe UI', sans-serif" font-size="7.2" font-weight="800" text-anchor="middle" letter-spacing="0.4">ŞU AN BİZİ</text>
+              <text x="85" y="31" fill="#19384a" font-family="'Segoe UI', sans-serif" font-size="7.2" font-weight="800" text-anchor="middle" letter-spacing="0.4">DİNLİYOR</text>
+              <text id="live-listener-count" x="70" y="55" fill="#17384a" font-family="'Segoe UI', sans-serif" font-size="19" font-weight="900" text-anchor="middle">0</text>
+              <text id="live-listener-detail" x="70" y="66" fill="#24495c" font-family="'Segoe UI', sans-serif" font-size="6.3" font-weight="700" text-anchor="middle">kişi · bilgi alınıyor</text>
+              <g transform="translate(70, 6)" filter="url(#pinShadow)">
+                <circle cx="0" cy="0" r="4" fill="#2980b9" />
+                <circle cx="-1" cy="-1" r="1.4" fill="#74b9ff" />
+              </g>
+            </g>
+
+            <g class="cork-postit" id="copy-site-link" data-action="copy-link" tabindex="0" role="button" aria-label="Linki kopyala" transform="translate(249, 112) rotate(-2.4)" filter="url(#postitShadow)">
+              <path d="M 0,0 L 66,0 L 66,74 Q 33,71 -1,74 Z" fill="url(#peachNote)" />
+              <rect x="0" y="0" width="66" height="13" fill="#000000" fill-opacity="0.04" />
+              <circle cx="33" cy="31" r="11" fill="none" stroke="#4a2e12" stroke-width="1.2" />
+              <path d="M 30,34 L 36,28 M 32,28 L 36,28 L 36,32" fill="none" stroke="#4a2e12" stroke-width="1.3" stroke-linecap="round" />
+              <text class="postit-label" x="33" y="54" fill="#4a2e12" font-family="'Segoe UI', sans-serif" font-size="8.2" font-weight="700" text-anchor="middle">Linki kopyala</text>
+              <g transform="translate(33, 6)" filter="url(#pinShadow)">
+                <circle cx="0" cy="0" r="4" fill="#2980b9" />
+                <circle cx="-1" cy="-1" r="1.4" fill="#74b9ff" />
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <script>
+          document.querySelectorAll('.cork-postit').forEach(note => {
+            note.addEventListener('click', () => {
+              const action = note.getAttribute('data-action');
+
+              if (!action) return;
+
+              if (action === 'copy-link') {
+                navigator.clipboard?.writeText(window.location.href).catch(() => {});
+                showToast('Site bağlantısı kopyalandı.');
+                return;
+              }
+
+              if (action === 'song-request') {
+                document.getElementById('song-request-dialog')?.showModal();
+                document.getElementById('song-request-form')?.elements.namedItem('song')?.focus();
+                return;
+              }
+
+              if (action === 'radio-stations') {
+                document.getElementById('radio-collection-dialog')?.showModal();
+                return;
+              }
+
+              if (action === 'cassette-collection') {
+                document.getElementById('tape-collection-dialog')?.showModal();
+                return;
+              }
+
+              if (action.startsWith('share-')) {
+                // Paylaşım notları kaldırıldı
+              }
+            });
+
+            note.addEventListener('keydown', event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                note.click();
+              }
+            });
+          });
+
+          // Mantar panodaki canlı dinleyici sayacı — oynayan sekmelerin heartbeat'ini okur.
+          const liveCountNote = document.getElementById('live-listener-count');
+          const liveDetailNote = document.getElementById('live-listener-detail');
+          const liveDotNote = document.getElementById('live-listener-dot');
+          async function refreshCorkLiveCount() {
+            try {
+              const response = await fetch('/api/listeners', { cache: 'no-store' });
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const data = await response.json();
+              const count = Number.isFinite(data.count) ? data.count : 0;
+              const radio = Number.isFinite(data.radio) ? data.radio : 0;
+              const tape = Number.isFinite(data.tape) ? data.tape : 0;
+              liveCountNote.textContent = count;
+              liveDetailNote.textContent = count ? `${count === 1 ? 'kişi' : 'kişi'} · ${radio} radyo / ${tape} kaset` : 'şu an kimse yok';
+              liveDotNote.setAttribute('fill', count ? '#239b56' : '#6b7280');
+            } catch {
+              liveDetailNote.textContent = 'bağlantı bekleniyor';
+              liveDotNote.setAttribute('fill', '#d08b2e');
+            }
+          }
+          refreshCorkLiveCount();
+          setInterval(refreshCorkLiveCount, 5000);
+        </script>
+
+        <div class="wall-switch-plate" role="group" aria-label="Duvar anahtarı">
+          <svg class="svg-switch-wrapper" viewBox="0 0 310 84" width="100%" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <filter id="switchWallShadow" x="-10%" y="-20%" width="120%" height="140%">
+                <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.38" />
+              </filter>
+              <filter id="rockerShadow" x="-10%" y="-10%" width="120%" height="120%">
+                <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.25" />
+              </filter>
+              <linearGradient id="ivoryPlateH" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#fffff8" />
+                <stop offset="60%" stop-color="#f4f0ea" />
+                <stop offset="100%" stop-color="#e2ded6" />
+              </linearGradient>
+              <linearGradient id="rockerGradH" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="50%" stop-color="#f6f3ed" />
+                <stop offset="100%" stop-color="#dedad2" />
+              </linearGradient>
+            </defs>
+
+            <g filter="url(#switchWallShadow)">
+              <rect x="4" y="4" width="302" height="76" rx="8" fill="url(#ivoryPlateH)" stroke="#c5c1b8" stroke-width="1" />
+              <rect x="8" y="8" width="294" height="68" rx="5" fill="none" stroke="#d5d1c8" stroke-width="1" />
+            </g>
+
+            <g fill="#7a766e" stroke="#4a4640" stroke-width="0.5">
+              <circle cx="16" cy="42" r="3" />
+              <line x1="16" y1="40" x2="16" y2="44" stroke="#222" stroke-width="0.8" />
+              <circle cx="294" cy="42" r="3" />
+              <line x1="294" y1="40" x2="294" y2="44" stroke="#222" stroke-width="0.8" />
+            </g>
+
+            <g class="switch-rocker" id="fullscreen-switch" data-function="fullscreen" tabindex="0" role="button" aria-label="Tam ekranı aç" title="Tam ekran" transform="translate(28, 14)">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+              <circle cx="23" cy="28" r="3" fill="none" stroke="#8c8880" stroke-width="1" />
+              <path d="M 18 18 L 28 18 M 18 18 L 18 28 M 28 28 L 28 18" fill="none" stroke="#7c776f" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" />
+            </g>
+
+            <g class="switch-rocker" id="player-power-switch" data-function="player-power" tabindex="0" role="button" aria-label="Player elektriğini kes" title="Player elektriğini kes" transform="translate(80, 14)">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+              <path d="M 21,25 L 21,30 M 19,26 A 3,3 0 1,0 27,26" fill="none" stroke="#8c8880" stroke-width="1.1" stroke-linecap="round" />
+            </g>
+
+            <g class="switch-rocker switch-rocker-spare" tabindex="0" role="button" aria-label="Yedek anahtar" transform="translate(132, 14)">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+            </g>
+
+            <g class="switch-rocker switch-rocker-spare" tabindex="0" role="button" aria-label="Yedek anahtar" transform="translate(184, 14)">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+            </g>
+
+            <g class="switch-rocker switch-rocker-spare" tabindex="0" role="button" aria-label="Yedek anahtar" transform="translate(236, 14)">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+            </g>
+
+            <g class="switch-rocker switch-rocker-main" id="room-light-switch" data-function="light-toggle" tabindex="0" role="button" aria-label="Oda ışığını kapat" title="Oda ışığını kapat" transform="translate(28,14)" aria-pressed="false" style="opacity:0; pointer-events:none;">
+              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
+              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="svg-shelf-wrapper" aria-label="Duvar kaset rafı">
+          <svg viewBox="0 0 340 165" width="100%" xmlns="http://www.w3.org/2000/svg" class="cassette-rack-svg" role="group" aria-label="Rafdaki kasetler, en fazla 12 kaset">
+            <defs>
+              <filter id="wallShadow" x="-10%" y="-10%" width="125%" height="130%">
+                <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.42" />
+              </filter>
+
+              <filter id="tapeShadow" x="-15%" y="-15%" width="130%" height="130%">
+                <feDropShadow dx="-2" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35" />
+              </filter>
+
+              <linearGradient id="woodFront" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#c89e74" />
+                <stop offset="15%" stop-color="#b4865a" />
+                <stop offset="85%" stop-color="#96683e" />
+                <stop offset="100%" stop-color="#754d29" />
+              </linearGradient>
+
+              <linearGradient id="shelfFloor" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#3e2a19" />
+                <stop offset="40%" stop-color="#6b4829" />
+                <stop offset="100%" stop-color="#8d623b" />
+              </linearGradient>
+
+              <linearGradient id="retroSunset" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#e5b84b" />
+                <stop offset="65%" stop-color="#e69d45" />
+                <stop offset="100%" stop-color="#d46a55" />
+              </linearGradient>
+
+              <linearGradient id="plasticSheen" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+                <stop offset="35%" stop-color="#ffffff" stop-opacity="0.08" />
+                <stop offset="70%" stop-color="#000000" stop-opacity="0.05" />
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0.25" />
+              </linearGradient>
+            </defs>
+
+            <rect x="24" y="24" width="292" height="115" rx="10" fill="#4a4d50" fill-opacity="0.38" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1" />
+
+            <g filter="url(#wallShadow)">
+              <path d="M 10,60 Q 10,54 18,54 L 28,54 L 28,136 L 10,136 Z" fill="#7c522d" />
+              <path d="M 330,60 Q 330,54 322,54 L 312,54 L 312,136 L 330,136 Z" fill="#7c522d" />
+              <polygon points="18,128 322,128 330,138 10,138" fill="url(#shelfFloor)" />
+            </g>
+
+            <g class="svg-tape" data-tape="80s-secme" transform="translate(26, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#d8e2dc" fill-opacity="0.45" stroke="#2b2d42" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.55" />
+              <rect x="2" y="7" width="18" height="113" fill="#8ab097" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#1d2d24" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="slow-hits" transform="translate(50, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#e2d8d8" fill-opacity="0.45" stroke="#2b2d42" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.55" />
+              <rect x="2" y="7" width="18" height="113" fill="#c4515c" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#fff5f5" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="gece-yarisi-1" transform="translate(74, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#e8e6df" fill-opacity="0.45" stroke="#2b2d42" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.6" />
+              <rect x="2" y="7" width="18" height="113" fill="#e5dec9" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#2b261d" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="anadolu-rock" transform="translate(98, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#d8e0e8" fill-opacity="0.45" stroke="#1d2d44" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.55" />
+              <rect x="2" y="7" width="18" height="113" fill="#467599" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#f0f7ff" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="enstrumantal" transform="translate(122, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#cfd8dc" fill-opacity="0.45" stroke="#263238" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.5" />
+              <rect x="2" y="7" width="18" height="113" fill="#637368" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#f1f5f2" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="gece-yarisi-2" transform="translate(146, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#e1bee7" fill-opacity="0.45" stroke="#311b92" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.5" />
+              <rect x="2" y="7" width="18" height="113" fill="#814785" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#fdf4ff" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="akustik-secki" transform="translate(170, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#eceff1" fill-opacity="0.55" stroke="#37474f" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.65" />
+              <rect x="2" y="7" width="18" height="113" fill="#d6d5ce" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#1c1c1c" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="svg-tape" data-tape="90lar-karisik" transform="translate(194, 10)" filter="url(#tapeShadow)">
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="#fff8e1" fill-opacity="0.5" stroke="#3e2723" stroke-width="0.8" />
+              <rect x="2" y="1.5" width="18" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.6" />
+              <rect x="2" y="7" width="18" height="113" fill="url(#retroSunset)" />
+              <rect x="0" y="0" width="22" height="124" rx="2" fill="url(#plasticSheen)" />
+              <text class="svg-tape-label" x="11" y="65" fill="#1a120b" font-family="'Courier New', monospace" font-size="8.5" font-weight="bold" text-anchor="middle" transform="rotate(90, 11, 65)" letter-spacing="0.5"></text>
+            </g>
+
+            <g class="shelf-front" filter="url(#wallShadow)">
+              <path d="M 10,58 Q 10,53 16,53 L 22,53 L 22,126 Q 22,131 27,131 L 313,131 Q 318,131 318,126 L 318,53 L 324,53 Q 330,53 330,58 L 330,137 Q 330,146 320,146 L 20,146 Q 10,146 10,137 Z" fill="url(#woodFront)" stroke="#5c3a1d" stroke-width="0.8" />
+              <path d="M 22,131 L 318,131" stroke="#e3be96" stroke-width="1" stroke-opacity="0.7" />
+              <path d="M 16,53 L 22,53 M 318,53 L 324,53" stroke="#e3be96" stroke-width="1" stroke-opacity="0.8" />
+            </g>
+          </svg>
+        </div>
+
+      </div>
+    </div>
 
     <dialog class="tape-collection-dialog" id="tape-collection-dialog" aria-labelledby="tape-collection-title">
       <div class="tape-collection-heading">
@@ -90,6 +469,77 @@
         <button class="dialog-close" id="close-tape-collection" type="button" aria-label="Koleksiyonu kapat">×</button>
       </div>
       <div class="tape-collection-list" id="tape-collection-list" aria-live="polite"></div>
+    </dialog>
+
+    <dialog class="cassette-builder-dialog" id="cassette-builder-dialog" aria-labelledby="cassette-builder-title">
+      <div class="cassette-builder-heading">
+        <div>
+          <p class="song-request-eyebrow">KASET ROBOTU</p>
+          <h2 id="cassette-builder-title">Kendi kasetini hazırla</h2>
+        </div>
+        <button class="dialog-close" id="close-cassette-builder" type="button" aria-label="Kaset oluşturucuyu kapat">×</button>
+      </div>
+      <div class="cassette-builder-tabs" role="tablist" aria-label="Kaset işlemi">
+        <button class="cassette-builder-tab is-active" id="cassette-create-tab" type="button" role="tab" aria-selected="true" aria-controls="cassette-create-panel" data-cassette-view="create">Kaset oluştur</button>
+        <button class="cassette-builder-tab" id="cassette-retrieve-tab" type="button" role="tab" aria-selected="false" aria-controls="cassette-retrieve-panel" data-cassette-view="retrieve">Kasetimi bul</button>
+      </div>
+      <section class="cassette-builder-panel" id="cassette-create-panel" role="tabpanel" aria-labelledby="cassette-create-tab">
+        <form id="custom-cassette-form">
+          <div class="cassette-builder-fields">
+            <label class="cassette-builder-field">
+              <span>Kaset adı</span>
+              <input id="custom-cassette-label" name="label" type="text" maxlength="48" placeholder="Örn. Yaz Akşamı" autocomplete="off" required />
+            </label>
+            <label class="cassette-builder-field cassette-color-field">
+              <span>Kaset rengi</span>
+              <select id="custom-cassette-color" name="color">
+                <option value="#d59333">Retro turuncu</option>
+                <option value="#2b8c89">Turkuaz</option>
+                <option value="#a94e62">Gül kurusu</option>
+                <option value="#5375a1">Kaset mavisi</option>
+              </select>
+            </label>
+          </div>
+          <label class="cassette-builder-field">
+            <span>E-posta adresin</span>
+            <input id="custom-cassette-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="kasetimi@bul.com" required />
+          </label>
+          <p class="cassette-builder-privacy">Kasetlerini bu adresle bulacaksın. Doğrulama e-postası gönderilmez; adresi bilen biri kasetleri görüntüleyebilir, düzenleyebilir veya silebilir.</p>
+          <div class="cassette-track-picker-heading">
+            <label for="custom-cassette-search">Şarkılarını seç</label>
+            <span id="custom-cassette-selection-count" aria-live="polite">0 / 20 parça</span>
+          </div>
+          <input class="cassette-track-search" id="custom-cassette-search" type="search" autocomplete="off" placeholder="Şarkı veya sanatçı ara…" />
+          <div class="cassette-track-options" id="custom-cassette-track-options" role="group" aria-label="Kasete eklenecek parçalar"></div>
+          <div class="cassette-radio-picker">
+            <div class="cassette-track-picker-heading">
+              <label for="custom-cassette-radio-search">Radyo kanalı ekle</label>
+              <span>radio-browser.info</span>
+            </div>
+            <div class="cassette-radio-search-row">
+              <input id="custom-cassette-radio-search" type="search" autocomplete="off" placeholder="Kral FM, BBC, jazz…" />
+              <input id="custom-cassette-radio-country" type="text" maxlength="2" placeholder="TR" aria-label="Ülke kodu" />
+              <button class="cassette-radio-search-button" id="custom-cassette-radio-search-button" type="button">Ara</button>
+            </div>
+            <p class="cassette-builder-status" id="custom-cassette-radio-status" role="status" aria-live="polite"></p>
+            <div class="cassette-track-options cassette-radio-results" id="custom-cassette-radio-results" role="group" aria-label="Kasete eklenecek radyo kanalları"></div>
+          </div>
+          <p class="cassette-builder-status" id="custom-cassette-create-status" role="status" aria-live="polite"></p>
+          <button class="cassette-builder-submit" id="custom-cassette-save" type="submit" disabled>Kaseti oluştur ve rafa ekle</button>
+        </form>
+      </section>
+      <section class="cassette-builder-panel" id="cassette-retrieve-panel" role="tabpanel" aria-labelledby="cassette-retrieve-tab" hidden>
+        <form id="custom-cassette-lookup-form" class="cassette-lookup-form">
+          <label class="cassette-builder-field">
+            <span>Kaseti oluştururken kullandığın e-posta</span>
+            <input id="custom-cassette-lookup-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="kasetimi@bul.com" required />
+          </label>
+          <button class="cassette-builder-submit" type="submit">Kasetlerimi bul</button>
+        </form>
+        <p class="cassette-builder-privacy">Doğrulama e-postası gönderilmez. E-posta adresini bilen herkes o adrese bağlı kasetleri görüntüleyebilir, düzenleyebilir veya kalıcı olarak silebilir.</p>
+        <p class="cassette-builder-status" id="custom-cassette-lookup-status" role="status" aria-live="polite"></p>
+        <div class="cassette-saved-list" id="custom-cassette-saved-list" aria-live="polite"></div>
+      </section>
     </dialog>
 
     <dialog class="tape-collection-dialog radio-collection-dialog" id="radio-collection-dialog" aria-labelledby="radio-collection-title">
@@ -132,9 +582,6 @@
         <button class="request-submit" type="submit">İsteği gönder</button>
       </form>
     </dialog>
-
-    <!-- ── Hata toast alanı ── -->
-    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
 
     <div class="boombox-row">
 
@@ -197,17 +644,49 @@
             <div class="deck-brand">
               <span class="deck-brand-light"></span>
               <span class="spectrum-brand-title" aria-hidden="true">STEREO SPECTRUM</span>
-              <div class="spectrum-modes" role="group" aria-label="Spektrum görünümü">
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="mirror" aria-label="Yansımalı spektrum" aria-pressed="false" title="Yansımalı spektrum">◫</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="equalizer" aria-label="Renkli ekolayzır" aria-pressed="false" title="Renkli ekolayzır">▥</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="wave" aria-label="Neon dalga" aria-pressed="false" title="Neon dalga">∿</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="classic" aria-label="Klasik çubuk spektrum" aria-pressed="false" title="Klasik çubuk spektrum">▮</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="led" aria-label="LED segment spektrum" aria-pressed="false" title="LED segment spektrum">▦</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="mono" aria-label="Tek renkli spektrum" aria-pressed="false" title="Tek renkli spektrum">≋</button>
-                <button class="spectrum-mode-button" type="button" data-spectrum-style="fire" aria-label="Sıcak tonlu spektrum" aria-pressed="false" title="Sıcak tonlu spektrum">▤</button>
-              </div>
+              <span class="deck-brand-light"></span>
+            </div>
+            <div class="spectrum-modes" role="group" aria-label="Spektrum görünümü">
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="mirror" aria-label="Yansımalı spektrum" aria-pressed="false" title="Yansımalı spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="equalizer" aria-label="Renkli ekolayzır" aria-pressed="false" title="Renkli ekolayzır"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="wave" aria-label="Neon dalga" aria-pressed="false" title="Neon dalga"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="classic" aria-label="Klasik çubuk spektrum" aria-pressed="false" title="Klasik çubuk spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="led" aria-label="LED segment spektrum" aria-pressed="false" title="LED segment spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="mono" aria-label="Tek renkli spektrum" aria-pressed="false" title="Tek renkli spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="fire" aria-label="Sıcak tonlu spektrum" aria-pressed="false" title="Sıcak tonlu spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="vfd" aria-label="VFD spektrum" aria-pressed="false" title="VFD spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="vu" aria-label="Analog VU metre" aria-pressed="false" title="Analog VU metre"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="crt" aria-label="CRT osiloskop" aria-pressed="false" title="CRT osiloskop"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="matrix" aria-label="LED nokta matrisi" aria-pressed="false" title="LED nokta matrisi"></button>
             </div>
             <div class="deck-spectrum-bay">
+            <div class="analyzer-mode-heading" data-mode-heading="vfd">
+              <span class="vu-meter-status vfd-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls vfd-band-controls" role="group" aria-label="VFD bant sayısı">
+                <button type="button" data-vfd-bands="16" aria-pressed="false">16 BAND</button>
+                <button type="button" data-vfd-bands="24" aria-pressed="true">24 BAND</button>
+              </div>
+            </div>
+            <div class="analyzer-mode-heading vu-meter-heading" data-mode-heading="vu">
+              <div class="vu-meter-themes" role="group" aria-label="VU metre renk teması">
+                <button type="button" data-vu-theme="warm" aria-pressed="true">TUNGSTEN</button>
+                <button type="button" data-vu-theme="ice" aria-pressed="false">ICE BLUE</button>
+              </div>
+            </div>
+            <div class="analyzer-mode-heading" data-mode-heading="crt">
+              <span class="vu-meter-status crt-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls crt-color-controls" role="group" aria-label="CRT fosfor rengi">
+                <button type="button" data-crt-color="green" aria-pressed="true">P31 GREEN</button>
+                <button type="button" data-crt-color="amber" aria-pressed="false">P3 AMBER</button>
+              </div>
+            </div>
+            <div class="analyzer-mode-heading" data-mode-heading="matrix">
+              <span class="vu-meter-status matrix-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls matrix-theme-controls" role="group" aria-label="LED matris teması">
+                <button type="button" data-matrix-theme="cyber" aria-pressed="true">CYAN / BLUE</button>
+                <button type="button" data-matrix-theme="fire" aria-pressed="false">RED / ORANGE</button>
+              </div>
+            </div>
             <div class="spectrum-header">
               <div class="spectrum-track-wrap" id="spectrum-track-wrap" aria-label="Şu an çalıyor">
                 <span class="spectrum-track">
@@ -217,6 +696,25 @@
               </div>
             </div>
             <div class="spectrum-bars" id="spectrum-bars" aria-hidden="true"></div>
+            <div class="analyzer-mode-footer vfd-footer" data-mode-footer="vfd">
+              <span>32Hz</span><span>64Hz</span><span>125Hz</span><span>250Hz</span><span>500Hz</span>
+              <span>1kHz</span><span>2kHz</span><span>4kHz</span><span>8kHz</span><span>16kHz</span>
+            </div>
+            <div class="analyzer-mode-footer vu-meter-footer" data-mode-footer="vu">
+              <span>LEFT CHANNEL (CH-1)</span>
+              <span>0 VU = +4 dBu</span>
+              <span>RIGHT CHANNEL (CH-2)</span>
+            </div>
+            <div class="analyzer-mode-footer" data-mode-footer="crt">
+              <span>TIME/DIV: 2.0ms</span>
+              <span class="crt-sync">SYNC: LOCKED</span>
+              <span>VOLTS/DIV: 0.5V</span>
+            </div>
+            <div class="analyzer-mode-footer" data-mode-footer="matrix">
+              <span>MODE: DOT-PEAK HOLD</span>
+              <span class="matrix-grid-label">MATRIX: 20x12 LED</span>
+              <span>REFRESH: 60Hz</span>
+            </div>
             </div>
           </div>
 
@@ -247,7 +745,7 @@
             <div class="display radio-display" id="radio-display">
             <div class="deck-brand" aria-hidden="true">
               <span class="deck-brand-light"></span>
-              <span>STEREO FM RADIO</span>
+              <span id="deck-brand-mode">STEREO FM RADIO</span>
               <span class="deck-brand-light"></span>
             </div>
             <div class="deck-radio-bay">
@@ -271,6 +769,9 @@
                   <span class="freq-date" id="radio-date" aria-label="Tarih"></span>
                   <span class="freq-time" id="radio-time" aria-label="Saat"></span>
                 </span>
+                <div class="radio-display-notice" id="radio-display-notice" role="status" aria-live="polite" aria-atomic="true">
+                  <span class="radio-display-notice-message"></span>
+                </div>
               </div>
               <div class="signal-meter">
                 <span class="signal-label">Signal</span>
@@ -337,80 +838,254 @@
                 <span id="tape-status-text">Stop</span>
               </span>
             </div>
-            <div class="deck-brand" aria-hidden="true">
-              <span class="deck-brand-light"></span>
-              <span>STEREO CASSETTE TAPE DECK</span>
-              <span class="deck-brand-light"></span>
+            <div class="deck-brand">
+              <span class="deck-brand-light" aria-hidden="true"></span>
+              <div class="tape-counter-box" id="counter-digits" aria-label="Çalma süresi">
+                <div class="drum-window"><div class="drum-strip" id="drum-m1"></div><div class="drum-cylinder-overlay"></div></div>
+                <div class="drum-window"><div class="drum-strip" id="drum-m2"></div><div class="drum-cylinder-overlay"></div></div>
+                <span class="counter-colon" aria-hidden="true">:</span>
+                <div class="drum-window"><div class="drum-strip" id="drum-s1"></div><div class="drum-cylinder-overlay"></div></div>
+                <div class="drum-window"><div class="drum-strip" id="drum-s2"></div><div class="drum-cylinder-overlay"></div></div>
+              </div>
+              <span class="deck-brand-light" aria-hidden="true"></span>
             </div>
             <div class="deck-cassette-bay">
-              <div class="cassette-shell">
-              <span class="cassette-screw screw-top-left" aria-hidden="true"></span>
-              <span class="cassette-screw screw-top-right" aria-hidden="true"></span>
-              <div class="cassette-paper">
-                <span class="cassette-paper-mark" aria-hidden="true">▲</span>
-                <span class="cassette-number">NO. 01</span>
-                <h2 class="cassette-title">GUESS THE SONG</h2>
-                <span class="tape-label" id="tape-label">Karışık Kaset</span>
-              </div>
-              <div class="cassette-orange">
-                <div class="cassette-window">
-                  <div class="tape-ribbon" aria-hidden="true"></div>
-                  <div class="reel" id="reel-left"><div class="reel-spoke s0"></div><div class="reel-spoke s1"></div><div class="reel-spoke s2"></div><div class="reel-hub"></div></div>
-                  <div class="tape-counter-mark" aria-hidden="true">100&nbsp;&nbsp;&nbsp;50&nbsp;&nbsp;&nbsp;0</div>
-                  <div class="reel" id="reel-right"><div class="reel-spoke s0"></div><div class="reel-spoke s1"></div><div class="reel-spoke s2"></div><div class="reel-hub"></div></div>
+              <div class="cassette-reference-door">
+                <div class="cassette-reference-top-label">
+                  <span>HI-SPEED FF/REW</span>
                 </div>
-                <div class="cassette-playmark" aria-hidden="true">
-                  <span class="cassette-dolby">◖D◗</span>
-                  <span class="cassette-play-text">PLAY</span>
+                <div class="cassette-reference-window">
+<svg viewBox="0 0 600 220" class="cassette-svg" role="img" aria-label="Kaset penceresi" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Pencere Camı Eğim (Bevel) Gradyanları -->
+            <linearGradient id="bevelTop" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#181817"/>
+              <stop offset="100%" stop-color="#32302e"/>
+            </linearGradient>
+            <linearGradient id="bevelBottom" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#6e6b66"/>
+              <stop offset="25%" stop-color="#42403d"/>
+              <stop offset="100%" stop-color="#242220"/>
+            </linearGradient>
+            <linearGradient id="bevelLeft" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#302e2b"/>
+              <stop offset="100%" stop-color="#4a4743"/>
+            </linearGradient>
+            <linearGradient id="bevelRight" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#75716b"/>
+              <stop offset="100%" stop-color="#2b2927"/>
+            </linearGradient>
+
+            <!-- Cam Yansıması -->
+            <linearGradient id="glassReflection" x1="0" y1="0" x2="0.3" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+              <stop offset="45%" stop-color="rgba(255,255,255,0.02)"/>
+              <stop offset="50%" stop-color="rgba(255,255,255,0)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>
+            </linearGradient>
+
+            <!-- Kaset Dış Plastik Gövde Deseni -->
+            <pattern id="plasticTexture" width="4" height="4" patternUnits="userSpaceOnUse">
+              <rect width="4" height="4" fill="#232325"/>
+              <circle cx="1" cy="1" r="0.6" fill="#2e2e31"/>
+              <circle cx="3" cy="3" r="0.6" fill="#19191b"/>
+            </pattern>
+
+            <!-- Beyaz Dişli Makara -->
+            <g id="custom-reel">
+              <circle cx="0" cy="0" r="24" fill="#161618"/>
+              <circle cx="0" cy="0" r="19" fill="#f2f2f0"/>
+              <g fill="#1c1c1e">
+                <rect x="-2" y="-19.5" width="4" height="5.5" rx="0.8"/>
+                <rect x="-2" y="14" width="4" height="5.5" rx="0.8"/>
+                <rect x="-2" y="-19.5" width="4" height="5.5" rx="0.8" transform="rotate(60)"/>
+                <rect x="-2" y="14" width="4" height="5.5" rx="0.8" transform="rotate(60)"/>
+                <rect x="-2" y="-19.5" width="4" height="5.5" rx="0.8" transform="rotate(120)"/>
+                <rect x="-2" y="14" width="4" height="5.5" rx="0.8" transform="rotate(120)"/>
+              </g>
+            </g>
+
+            <clipPath id="innerWindowClip">
+              <rect x="75" y="34" width="450" height="106" rx="2"/>
+            </clipPath>
+          </defs>
+
+          <!-- 1. KASET DETAYI (İç Pencere) -->
+          <g clip-path="url(#innerWindowClip)">
+            <rect x="75" y="34" width="450" height="106" fill="#141416"/>
+            <rect x="92" y="35" width="416" height="106" rx="4" fill="url(#plasticTexture)" stroke="#111112" stroke-width="1"/>
+
+            <!-- Üst Köşe Vidaları -->
+            <g fill="#5b5442" stroke="#1a1a1c" stroke-width="1">
+              <circle cx="105" cy="43" r="4.5"/>
+              <line x1="102" y1="40" x2="108" y2="46" stroke="#222" stroke-width="1.2"/>
+              <circle cx="495" cy="43" r="4.5"/>
+              <line x1="492" y1="40" x2="498" y2="46" stroke="#222" stroke-width="1.2"/>
+            </g>
+
+            <!-- KESİK KÖŞELİ KREM ÜST ETİKET ALANI -->
+            <polygon points="126,43 474,43 488,57 488,79 112,79 112,57" fill="#e6e5dc"/>
+            <line x1="120" y1="56" x2="480" y2="56" stroke="#b9b7ae" stroke-width="0.9"/>
+            <line x1="116" y1="66" x2="484" y2="66" stroke="#b9b7ae" stroke-width="0.9"/>
+            <line x1="116" y1="75" x2="484" y2="75" stroke="#b9b7ae" stroke-width="0.9"/>
+
+            <text id="cassette-set-name" x="300" y="52" text-anchor="middle" fill="#5a5144" font-family="Helvetica, Arial, sans-serif" font-size="8" font-weight="800" letter-spacing="0.8">KARIŞIK KASET</text>
+            <!-- SANATÇI ADI -->
+            <text id="cassette-title" class="cassette-title" x="300" y="72" text-anchor="middle" fill="#1d1815" font-family="'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', cursive, sans-serif" font-size="23" font-weight="900" letter-spacing="1.2">Pınar Aylin</text>
+
+            <!-- TURUNCU ALT ETİKET GÖVDESİ -->
+            <rect x="112" y="79" width="376" height="62" fill="#e5930e"/>
+
+            <!-- A SIDE -->
+            <g transform="translate(132, 91)">
+              <rect x="0" y="0" width="32" height="39" fill="none" stroke="#1d1815" stroke-width="1.6"/>
+              <text x="16" y="23" text-anchor="middle" fill="#1d1815" font-family="'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="900">A</text>
+              <text x="16" y="35" text-anchor="middle" fill="#1d1815" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8.5" font-weight="800" letter-spacing="0.4">SIDE</text>
+            </g>
+
+            <!-- 60 ve npw -->
+            <g transform="translate(451, 91)">
+              <text x="0" y="19" text-anchor="middle" fill="#1d1815" font-family="'Helvetica Neue', Arial, sans-serif" font-size="20" font-weight="900">60</text>
+              <path d="M-14,35 C-18,35 -20,31 -18,28 C-18,24 -13,22 -9,24 C-6,21 1,21 4,24 C8,22 13,24 13,28 C16,31 14,35 10,35 Z" fill="#1d1815"/>
+              <text x="0" y="32.5" text-anchor="middle" fill="#e5930e" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" font-weight="900" letter-spacing="0.2">npw</text>
+            </g>
+
+            <!-- ORTA SİYAH MAKARA YUVASI -->
+            <rect x="180" y="84" width="240" height="52" rx="26" fill="#141416" stroke="#2c2925" stroke-width="1.5"/>
+
+            <g transform="translate(212, 110)">
+              <use href="#custom-reel" id="reel-left" class="reel-spin"/>
+            </g>
+            <g transform="translate(388, 110)">
+              <use href="#custom-reel" id="reel-right" class="reel-spin"/>
+            </g>
+
+            <rect x="252" y="92" width="96" height="36" rx="2" fill="#2c2d30" stroke="#3f4146" stroke-width="1.5"/>
+            <rect x="254" y="94" width="22" height="32" fill="#221e1d"/>
+            <rect x="324" y="94" width="22" height="32" fill="#221e1d"/>
+            <line x1="254" y1="95" x2="346" y2="95" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+            <text id="tape-label" class="cassette-track-title" x="300" y="114" text-anchor="middle" fill="#eee4c9" font-family="Helvetica, Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="0.3">Karışık Kaset</text>
+          </g>
+
+          <!-- 2. EĞİMLİ ÇERÇEVE (BEVEL PANELS) -->
+          <polygon points="0,0 600,0 525,34 75,34" fill="url(#bevelTop)"/>
+          <polygon points="75,140 525,140 600,220 0,220" fill="url(#bevelBottom)"/>
+          <polygon points="0,0 75,34 75,140 0,220" fill="url(#bevelLeft)"/>
+          <polygon points="525,34 600,0 600,220 525,140" fill="url(#bevelRight)"/>
+
+          <line x1="0" y1="0" x2="75" y2="34" stroke="#18191b" stroke-width="1"/>
+          <line x1="600" y1="0" x2="525" y2="34" stroke="#18191b" stroke-width="1"/>
+          <line x1="75" y1="140" x2="0" y2="220" stroke="#242528" stroke-width="1.5"/>
+          <line x1="525" y1="140" x2="600" y2="220" stroke="#989a9f" stroke-width="1.5"/>
+          <rect x="75" y="34" width="450" height="106" fill="none" stroke="#151618" stroke-width="1.5"/>
+
+          <!-- 3. ÖN CAM YANSIMASI VE ALT YAZILAR -->
+          <rect x="0" y="0" width="600" height="220" fill="url(#glassReflection)" pointer-events="none"/>
+
+
+          
+          
+          <!-- Pencere Ortası: AUTO REVERSE ve Oklar -->
+          <g transform="translate(300, 168)">
+            <!-- Sol Ok -->
+            <polygon points="-85,12 -73,6 -73,18" fill="#d2b36b"/>
+            <!-- Sağ Ok -->
+            <polygon points="85,12 73,6 73,18" fill="#d2b36b"/>
+            <!-- Metin -->
+            <text x="0" y="16" text-anchor="middle" fill="#d2b36b" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.2">AUTO REVERSE</text>
+          </g>
+        </svg>
                 </div>
-              </div>
-              <span class="cassette-screw screw-bottom" aria-hidden="true"></span>
               </div>
             </div>
-            <div class="transport-bar deck-transport">
-              <button class="tbtn" id="btn-prev" aria-label="Önceki">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/></svg>
-                <span class="tbtn-label">REW</span>
-              </button>
-              <button class="tbtn" id="btn-stop" aria-label="Durdur" aria-pressed="false">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
-                <span class="tbtn-label">STOP</span>
-              </button>
-              <button class="tbtn tbtn-play" id="btn-play" aria-label="Oynat/Duraklat" aria-pressed="false">
-                <span class="play-dot" id="play-dot"></span>
-                <svg class="icon-play" id="icon-play" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <svg class="icon-pause hidden" id="icon-pause" viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                <span class="tbtn-label">PLAY</span>
-              </button>
-              <button class="tbtn" id="btn-next" aria-label="Sonraki">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/></svg>
-                <span class="tbtn-label">F.FWD</span>
-              </button>
-            </div>
-            <div class="tape-progress-panel">
-              <div class="counter-row" id="counter-row">
-                <div class="counter-digits" id="counter-digits">
-                  <span class="cdigit">0</span><span class="cdigit">0</span>
-                  <span class="ccolon">:</span>
-                  <span class="cdigit">0</span><span class="cdigit">0</span>
-                </div>
-              </div>
-              <div class="auto-reverse">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-                Auto Reverse
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-              </div>
-            </div>
-            <!-- İlerleme çubuğu (tıklanabilir) -->
             <div class="progress-wrap">
-              <div class="progress-bar" id="progress-bar" role="slider" tabindex="0" aria-label="İlerleme" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <div class="progress-fill" id="progress-fill"></div>
+              <div class="progress-bar" id="progress-bar" role="slider" tabindex="0" aria-label="Çalma ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="progress-pixels" id="progress-pixels" aria-hidden="true"></div>
               </div>
             </div>
-            <div class="progress-labels">
-              <span class="mono" id="progress-remaining">-00:00</span>
-              <span class="track-artist-small" id="tape-track-artist"></span>
-            </div>
+            <svg viewBox="0 0 460 112" xmlns="http://www.w3.org/2000/svg" class="deck-keys-svg" role="group" aria-label="Kaset çalar tuşları">
+              <defs>
+                <linearGradient id="topPanelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#e5e2dc" />
+                  <stop offset="100%" stop-color="#bdb8b0" />
+                </linearGradient>
+                <linearGradient id="slotCavity" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#0d0d0d" />
+                  <stop offset="50%" stop-color="#1e1e1e" />
+                  <stop offset="100%" stop-color="#2e2e2e" />
+                </linearGradient>
+                <linearGradient id="keyTopNormal" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#ffffff" />
+                  <stop offset="22%" stop-color="#eae7e1" />
+                  <stop offset="85%" stop-color="#cfcbc2" />
+                  <stop offset="100%" stop-color="#b8b4ab" />
+                </linearGradient>
+                <linearGradient id="keyTopPressed" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#8a867e" />
+                  <stop offset="35%" stop-color="#b5b1a8" />
+                  <stop offset="85%" stop-color="#d6d2c9" />
+                  <stop offset="100%" stop-color="#ebe8e1" />
+                </linearGradient>
+                <linearGradient id="keyFrontLip" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#f7f5f0" />
+                  <stop offset="35%" stop-color="#9c9890" />
+                  <stop offset="100%" stop-color="#5e5b55" />
+                </linearGradient>
+                <filter id="keyShadow" x="-15%" y="-10%" width="130%" height="145%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.5" />
+                </filter>
+                <filter id="keyPressedShadow" x="-15%" y="-10%" width="130%" height="145%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.65" />
+                </filter>
+                <linearGradient id="eqTactileButton" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#636468" />
+                  <stop offset="22%" stop-color="#36373a" />
+                  <stop offset="55%" stop-color="#1c1d1f" />
+                  <stop offset="100%" stop-color="#0e0e10" />
+                </linearGradient>
+                <linearGradient id="eqTactilePressed" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#262729" />
+                  <stop offset="45%" stop-color="#18191b" />
+                  <stop offset="100%" stop-color="#0d0d0f" />
+                </linearGradient>
+              </defs>
+              <rect x="2" y="2" width="456" height="44" rx="4" fill="url(#topPanelGrad)" stroke="#6e6a63" stroke-width="1" />
+              <line x1="3" y1="3" x2="457" y2="3" stroke="#ffffff" stroke-opacity="0.7" />
+              <line x1="116" y1="7" x2="116" y2="39" stroke="#222222" stroke-width="1.5" />
+              <line x1="230" y1="7" x2="230" y2="39" stroke="#222222" stroke-width="1.5" />
+              <line x1="344" y1="7" x2="344" y2="39" stroke="#222222" stroke-width="1.5" />
+              <g transform="translate(59, 17)" fill="#1c1c1c" aria-hidden="true">
+                <polygon points="-4,-5 -4,5 -12,0" /><polygon points="4,-5 4,5 -4,0" /><rect x="-14" y="-5" width="2" height="10" />
+                <text x="0" y="19" class="deck-key-label">REW</text>
+              </g>
+              <g transform="translate(173, 17)" fill="#1c1c1c" aria-hidden="true">
+                <rect x="-5" y="-5" width="10" height="10" /><text x="0" y="19" class="deck-key-label">STOP</text>
+              </g>
+              <g transform="translate(287, 17)" fill="#1c1c1c" aria-hidden="true">
+                <polygon points="-4,-6 -4,6 6,0" /><text x="0" y="19" class="deck-key-label">PLAY</text>
+              </g>
+              <g transform="translate(401, 17)" fill="#1c1c1c" aria-hidden="true">
+                <polygon points="-4,-5 -4,5 4,0" /><polygon points="4,-5 4,5 12,0" /><rect x="12" y="-5" width="2" height="10" />
+                <text x="0" y="19" class="deck-key-label">F.FWD</text>
+              </g>
+              <rect x="6" y="42" width="448" height="46" rx="4" fill="url(#slotCavity)" stroke="#3b3935" stroke-width="1.5" />
+              <g class="piano-key" id="btn-prev" role="button" tabindex="0" aria-label="Önceki parça" data-cmd="REW" transform="translate(12, 44)">
+                <rect class="transport-hit-area" width="98" height="46" fill="transparent" pointer-events="all" />
+                <g class="key-inner"><polygon class="key-top" points="4,0 94,0 98,38 0,38" fill="url(#keyTopNormal)" stroke="#524f4a" stroke-width="0.8" /><rect x="33" y="7" width="32" height="3.5" rx="0.8" fill="#8c8880" /><rect class="key-lip" x="0" y="38" width="98" height="8" rx="1.5" fill="url(#keyFrontLip)" stroke="#3d3b37" stroke-width="0.8" /></g>
+              </g>
+              <g class="piano-key" id="btn-stop" role="button" tabindex="0" aria-label="Durdur" aria-pressed="false" data-cmd="STOP" transform="translate(125, 44)">
+                <rect class="transport-hit-area" width="98" height="46" fill="transparent" pointer-events="all" />
+                <g class="key-inner"><polygon class="key-top" points="4,0 94,0 98,38 0,38" fill="url(#keyTopNormal)" stroke="#524f4a" stroke-width="0.8" /><rect x="33" y="7" width="32" height="3.5" rx="0.8" fill="#8c8880" /><rect class="key-lip" x="0" y="38" width="98" height="8" rx="1.5" fill="url(#keyFrontLip)" stroke="#3d3b37" stroke-width="0.8" /></g>
+              </g>
+              <g class="piano-key" id="btn-play" role="button" tabindex="0" aria-label="Oynat/Duraklat" aria-pressed="false" data-cmd="PLAY" transform="translate(238, 44)">
+                <rect class="transport-hit-area" width="98" height="46" fill="transparent" pointer-events="all" />
+                <g class="key-inner"><polygon class="key-top" points="4,0 94,0 98,38 0,38" fill="url(#keyTopNormal)" stroke="#524f4a" stroke-width="0.8" /><rect x="33" y="7" width="32" height="3.5" rx="0.8" fill="#8c8880" /><rect class="key-lip" x="0" y="38" width="98" height="8" rx="1.5" fill="url(#keyFrontLip)" stroke="#3d3b37" stroke-width="0.8" /></g>
+              </g>
+              <g class="piano-key" id="btn-next" role="button" tabindex="0" aria-label="Sonraki parça" data-cmd="F.FWD" transform="translate(351, 44)">
+                <rect class="transport-hit-area" width="98" height="46" fill="transparent" pointer-events="all" />
+                <g class="key-inner"><polygon class="key-top" points="4,0 94,0 98,38 0,38" fill="url(#keyTopNormal)" stroke="#524f4a" stroke-width="0.8" /><rect x="33" y="7" width="32" height="3.5" rx="0.8" fill="#8c8880" /><rect class="key-lip" x="0" y="38" width="98" height="8" rx="1.5" fill="url(#keyFrontLip)" stroke="#3d3b37" stroke-width="0.8" /></g>
+              </g>
+            </svg>
             </div>
             
 
@@ -423,21 +1098,16 @@
                 Kaset Çalar ve Parçalar
               </h2>
               <span class="playlist-count" id="track-count">0 tracks</span>
+              <div class="cassette-robot-launcher cassette-robot-launcher-inline">
+                <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="" aria-hidden="true" />
+                <span class="robot-label">KASETİNİ YAP</span>
+                <button class="robot-open-button" id="open-cassette-builder" type="button" data-open-cassette-builder aria-haspopup="dialog" aria-controls="cassette-builder-dialog" aria-label="Kaset oluşturucuyu aç"></button>
+                <button class="robot-hide-antenna" type="button" data-hide-cassette-robot title="Antene tıkla: robotu gizle" aria-label="Antene tıkla: robotu gizle"></button>
+              </div>
+              <button class="robot-restore-button robot-restore-inline" type="button" data-show-cassette-robot title="Kaset robotunu tekrar göster" aria-label="Kaset robotunu tekrar göster">
+                <span class="robot-restore-icon" aria-hidden="true"></span>
+              </button>
             </header>
-            <div class="tape-selectors">
-              <label class="tape-selector">
-                <span>Kaset kategorisi</span>
-                <select class="tape-category-filter" id="tape-category-filter" aria-label="Kaset kategorisi">
-                  <option value="all">Tüm kategoriler</option>
-                </select>
-              </label>
-              <label class="tape-selector">
-                <span>Kaset</span>
-                <select class="tape-choice" id="tape-choice" aria-label="Kaset seç">
-                  <option value="">Kaset yok</option>
-                </select>
-              </label>
-            </div>
             <ul class="playlist-list" id="track-list" role="listbox" aria-label="Kaset Parçaları"></ul>
           </section>
 
@@ -470,6 +1140,10 @@
       <button type="button" id="open-cookie-policy">Çerez politikası</button>
       <span aria-hidden="true">·</span>
       <button type="button" id="open-legal-notice">Yasal uyarı</button>
+      <span class="utility-sep" aria-hidden="true">·</span>
+      <button type="button" class="utility-action" data-mirror-switch="fullscreen-switch">Tam ekran</button>
+      <span class="utility-sep" aria-hidden="true">·</span>
+      <button type="button" class="utility-action" data-mirror-switch="player-power-switch">Güç</button>
     </footer>
 
   </main>
@@ -488,6 +1162,7 @@
     <div class="legal-dialog-content">
       <p>Site kullanımı, Karışık Kaset'e ait kullanım istatistiklerini ölçmek için web-analytics.ondernet.net üzerindeki analitik hizmetine iletilir. Bu hizmet, ziyaret ve tarayıcı/cihaz bilgileri gibi kullanım verilerini işleyebilir; veri işleme ve saklama ayrıntıları hizmet sağlayıcısının politikasına tabidir. Bu analitik kodu site açıldığında yüklenir.</p>
       <p>Ses seviyesi, spektrum görünümü, hoparlör ışık modu ve istasyon tercihleri gibi kişiselleştirme ayarları tarayıcınızın yerel depolama (localStorage) alanında tutulur. Bu veriler uygulamanın düzgün çalışmasını ve tercihinizi hatırlamasını sağlar; dilerseniz tarayıcı ayarlarınızdan dilediğiniz zaman silebilirsiniz.</p>
+      <p>Kişisel kaset oluştururken girilen e-posta adresi doğrulanmaz ve bu adrese e-posta gönderilmez. Adresin kendisi düz metin olarak saklanmaz; kaset adı ve seçilen parça listesiyle birlikte, e-postanın sunucu anahtarıyla üretilmiş HMAC-SHA256 özeti sunucuda kalıcı olarak tutulur. E-posta adresini bilen herkes o adrese bağlı kasetleri görüntüleyebilir, düzenleyebilir veya silebilir; gizli kalması gereken bir adres kullanmayın. Kasetlerinizi bu adrese göre bulduktan sonra düzenleyebilir veya silebilirsiniz.</p>
       <p>Kaset çalar bileşeni SoundCloud tarafından sağlanan harici bir gömülü oynatıcı kullanır. Radyo yayınları ise doğrudan ilgili istasyonların kendi sunucularından çekilir. Bu harici hizmetlerle bağlantı kurduğunuzda; ilgili üçüncü taraflar IP adresinizi, cihaz/tarayıcı bilgilerinizi kaydedebilir veya kendi çerez / benzeri izleme teknolojilerini kullanabilirler. Bu veri işleme faaliyetleri tamamen ilgili üçüncü tarafların gizlilik politikalarına tabi olup, bu uygulamanın kontrolü dışındadır.</p>
       <p>Bu pencerede yer alan metinler, uygulamanın mevcut teknik işleyişini açıklamak amacıyla hazırlanmış olup resmi yasal danışmanlık niteliği taşımaz.</p>
     </div>
@@ -501,7 +1176,7 @@
     <div class="legal-dialog-content">
       <p>Bu uygulama, müzik eserlerini kendi sunucusunda barındırmaz, depolamaz veya sunucusuna yüklemez. Kaset çalma özelliği SoundCloud oynatıcısına, radyo özelliği ise ilgili istasyonların resmi yayın adreslerine doğrudan bağlanır. Ses ve yayın içeriği tamamen bu üçüncü taraf kaynaklardan iletilmekte olup, erişilebilirlik ve yayın koşulları ilgili kaynak sağlayıcıların tasarrufundadır.</p>
       <p>Eserlerin, kayıtların, yayınların ve marka adlarının tüm hakları ilgili sanatçılara, yapımcılara, yayıncılara ve diğer yasal hak sahiplerine aittir. Bir içeriğin internette herkese açık olması, onun için her türlü kullanım, telifsiz dağıtım veya umuma arz izni verildiği anlamına gelmez. Bu uygulama, barındırmadığı eserler üzerinde hiçbir hak sahipliği iddiasında bulunmaz.</p>
-      <p>İçerik veya hak sahipliğiyle ilgili bir bildiriminiz (Telif Kaldırma Talebi vb.) olduğunda, hak sahipliğinizi teyit eden bilgilerle birlikte <strong>[BURAYA E-POSTA ADRESİNİZİ YAZIN]</strong> adresinden bizimle iletişime geçebilirsiniz. Bildirilen içerikler incelenerek gerekli görüldüğü takdirde kaynak bağlantı sistemden kaldırılır veya erişilemez hâle getirilir; kaynak içerik kaldırılırsa buradaki bağlantı da işlevini yitirebilir.</p>
+      <p>İçerik veya hak sahipliğiyle ilgili bir bildiriminiz (Telif Kaldırma Talebi vb.) olduğunda, hak sahipliğinizi teyit eden bilgilerle birlikte <strong>info@karisikkaset.online</strong> adresinden bizimle iletişime geçebilirsiniz. Bildirilen içerikler incelenerek gerekli görüldüğü takdirde kaynak bağlantı sistemden kaldırılır veya erişilemez hâle getirilir; kaynak içerik kaldırılırsa buradaki bağlantı da işlevini yitirebilir.</p>
     </div>
   </dialog>
 
@@ -518,6 +1193,6 @@
   <!-- SoundCloud Widget API -->
   <script src="https://w.soundcloud.com/player/api.js"></script>
   <!-- Uygulama -->
-  <script src="app.js" defer></script>
+  <script src="app.js?v=cassette-maker-20261113-7" defer></script>
 </body>
 </html>
