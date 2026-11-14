@@ -1102,6 +1102,7 @@ class UI {
     this._bindRequestBoard();
     this._bindTapeCollection();
     this._bindCassetteShelf();
+    this._bindMobileCassetteDrawer();
     this._bindCassetteCreator();
     this._bindRadioCollection();
     this._bindRoomLightSwitch();
@@ -1758,6 +1759,93 @@ class UI {
       if (!cassette) return;
       event.preventDefault();
       selectCassette(cassette);
+    });
+  }
+
+  _bindMobileCassetteDrawer() {
+    const toggle = document.getElementById('mobile-shelf-toggle');
+    const drawer = document.getElementById('mobile-shelf-drawer');
+    const backdrop = document.getElementById('mobile-shelf-backdrop');
+    const closeButton = document.getElementById('mobile-shelf-close');
+    const list = document.getElementById('mobile-shelf-list');
+    if (!toggle || !drawer || !backdrop || !closeButton || !list) return;
+
+    const close = () => {
+      drawer.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      toggle.setAttribute('aria-expanded', 'false');
+      backdrop.hidden = true;
+      document.body.classList.remove('mobile-shelf-open');
+    };
+
+    const render = () => {
+      list.replaceChildren();
+      const tapes = Array.isArray(this._app._tapes) ? this._app._tapes : [];
+      if (!tapes.length) {
+        const empty = document.createElement('p');
+        empty.className = 'mobile-shelf-empty';
+        empty.textContent = 'Kaset rafı henüz yüklenmedi.';
+        list.appendChild(empty);
+        return;
+      }
+
+      tapes.forEach((tape, index) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'mobile-shelf-card';
+        card.dataset.tapeIndex = String(index);
+        card.setAttribute('aria-label', `${tape.label || 'Kaset'} kasetini çal`);
+        card.classList.toggle('is-active', this._app._tapeIdx === index);
+
+        const spine = document.createElement('span');
+        spine.className = 'mobile-shelf-card-spine';
+        const color = /^#[0-9a-f]{6}$/i.test(tape.color || '') ? tape.color : '#8a6040';
+        spine.style.background = color;
+        spine.textContent = String(index + 1).padStart(2, '0');
+
+        const info = document.createElement('span');
+        info.className = 'mobile-shelf-card-info';
+        const label = document.createElement('span');
+        label.className = 'mobile-shelf-card-label';
+        label.textContent = tape.label || 'İsimsiz kaset';
+        const category = document.createElement('span');
+        category.className = 'mobile-shelf-card-category';
+        category.textContent = `${tape.category || 'Diğer'} · ${tape.tracks?.length || 0} parça`;
+        info.append(label, category);
+
+        const play = document.createElement('span');
+        play.className = 'mobile-shelf-card-play';
+        play.setAttribute('aria-hidden', 'true');
+        play.textContent = '▶';
+        card.append(spine, info, play);
+        card.addEventListener('click', () => {
+          this._app.switchToTapeBySelector(index);
+          close();
+        });
+        list.appendChild(card);
+      });
+    };
+
+    const open = () => {
+      render();
+      drawer.classList.add('is-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      toggle.setAttribute('aria-expanded', 'true');
+      backdrop.hidden = false;
+      document.body.classList.add('mobile-shelf-open');
+      closeButton.focus();
+    };
+
+    toggle.addEventListener('click', () => {
+      drawer.classList.contains('is-open') ? close() : open();
+    });
+    closeButton.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && drawer.classList.contains('is-open')) {
+        close();
+        toggle.focus();
+      }
     });
   }
 
@@ -3401,18 +3489,18 @@ class App {
 }
 
 const ROOM_PICTURE_IMAGES = [
-  'pexels-zeynep-sude-emek-193601188-36753970.jpg',
-  'pexels-wal_-172619-2156618639-37738870.jpg',
-  'pexels-theroshanbhatt-32419298.jpg',
-  'pexels-steve-30784971.jpg',
-  'pexels-sirokad-37818592.jpg',
-  'pexels-sami-aksu-48867324-11254754.jpg',
-  'pexels-recepcelikphoto-13672091.jpg',
-  'pexels-nazar-aslan-443954785-33068045.jpg',
-  'pexels-edward-jenner-4253054.jpg',
-  'pexels-burakarli-39533353.jpg',
-  'pexels-astar-537690801-26202179.jpg',
-  'pexels-arnetx-34780375.jpg'
+  'pexels-zeynep-sude-emek-193601188-36753970.webp',
+  'pexels-wal_-172619-2156618639-37738870.webp',
+  'pexels-theroshanbhatt-32419298.webp',
+  'pexels-steve-30784971.webp',
+  'pexels-sirokad-37818592.webp',
+  'pexels-sami-aksu-48867324-11254754.webp',
+  'pexels-recepcelikphoto-13672091.webp',
+  'pexels-nazar-aslan-443954785-33068045.webp',
+  'pexels-edward-jenner-4253054.webp',
+  'pexels-burakarli-39533353.webp',
+  'pexels-astar-537690801-26202179.webp',
+  'pexels-arnetx-34780375.webp'
 ];
 
 function setRandomRoomPictures() {
@@ -3423,11 +3511,25 @@ function setRandomRoomPictures() {
   }
   const image = document.getElementById('wall-picture-right');
   if (!image || !images[0]) return;
-  image.onerror = () => console.warn(`[Room decor] Tablo görseli yüklenemedi: /arkaplan/${images[0]}`);
+  image.onerror = () => {
+    if (image.src.endsWith('.webp')) {
+      image.onerror = () => console.warn(`[Room decor] Tablo görseli yüklenemedi: /arkaplan/${images[0]}`);
+      image.src = `/arkaplan/${images[0].replace(/\.webp$/i, '.jpg')}`;
+    }
+  };
+  image.decoding = 'async';
+  image.fetchPriority = 'low';
   image.src = `/arkaplan/${images[0]}`;
 }
 
-setRandomRoomPictures();
+const scheduleRoomPicture = () => {
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(setRandomRoomPictures, { timeout: 2500 });
+  } else {
+    window.setTimeout(setRandomRoomPictures, 1200);
+  }
+};
+scheduleRoomPicture();
 
 /* ═══════════════════════════════════════════════════════
    DİNLEYİCİ HEARTBEAT

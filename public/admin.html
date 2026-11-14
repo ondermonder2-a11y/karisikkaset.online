@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Yönetim · Karışık Kaset</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/music.png?v=20261114">
+  <link rel="apple-touch-icon" href="/music.png?v=20261114">
   <link rel="stylesheet" href="/admin.css">
 </head>
 <body>
@@ -207,6 +209,19 @@
               <button class="button button-secondary btn-sm" id="save-tape-order" type="button" disabled>
                 Sıralamayı Kaydet
               </button>
+            </div>
+            <div class="tape-backup-controls" aria-label="Kaset yedekleme">
+              <div>
+                <strong>Kaset yedeği</strong>
+                <span id="tape-backup-status" class="muted">Değişikliklerden önce otomatik yedeklenir.</span>
+              </div>
+              <div class="tape-backup-actions">
+                <button class="button button-secondary btn-sm" id="backup-tapes" type="button">Yedek al ve indir</button>
+                <select id="tape-backup-select" aria-label="Geri yüklenecek kaset yedeği">
+                  <option value="">Yedek seç…</option>
+                </select>
+                <button class="button button-danger btn-sm" id="restore-tape-backup" type="button" disabled>Geri yükle</button>
+              </div>
             </div>
 
             <!-- Kaset rafı önizlemesi -->

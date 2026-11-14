@@ -3,31 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Karışık Kaset | Online Radyo ve Retro Kaset Çalar</title>
+  <title>Karışık Kaset | Online Radyo, Kaset Çalar ve Müzik</title>
   <meta name="description" content="Karışık Kaset ile çevrimiçi radyo istasyonlarını keşfet, retro kaset çalarda SoundCloud parçalarını dinle. Masaüstü ve mobil uyumlu nostaljik müzik deneyimi." />
   <meta name="robots" content="index, follow, max-image-preview:large" />
   <meta name="theme-color" content="#51483d" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/music.png?v=20261114" />
+  <link rel="apple-touch-icon" href="/music.png?v=20261114" />
+  <link rel="preconnect" href="https://w.soundcloud.com" crossorigin />
+  <link rel="dns-prefetch" href="//w.soundcloud.com" />
+  <link rel="preload" href="/arkaplan/background.webp" as="image" type="image/webp" fetchpriority="high" />
+  <link rel="preload" href="/style.css?v=seo-performance-20261114-1" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="/style.css?v=seo-performance-20261114-1" /></noscript>
   <link rel="canonical" href="https://karisikkaset.online/" />
-  <link rel="stylesheet" href="/style.css?v=cassette-robot-maker-20261113-6" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="tr_TR" />
   <meta property="og:site_name" content="Karışık Kaset" />
-  <meta property="og:title" content="Karışık Kaset | Online Radyo ve Retro Kaset Çalar" />
+  <meta property="og:title" content="Karışık Kaset | Online Radyo, Kaset Çalar ve Müzik" />
   <meta property="og:description" content="Çevrimiçi radyo istasyonlarını keşfet, retro kaset çalarda SoundCloud parçalarını dinle." />
   <meta property="og:url" content="https://karisikkaset.online/" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Karışık Kaset | Online Radyo ve Retro Kaset Çalar" />
+  <meta name="twitter:title" content="Karışık Kaset | Online Radyo, Kaset Çalar ve Müzik" />
   <meta name="twitter:description" content="Çevrimiçi radyo istasyonlarını keşfet, retro kaset çalarda SoundCloud parçalarını dinle." />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Karışık Kaset",
-      "url": "https://karisikkaset.online/",
-      "description": "Çevrimiçi radyo istasyonları ve SoundCloud destekli retro kaset çalar.",
-      "applicationCategory": "MusicApplication",
-      "operatingSystem": "Any",
-      "inLanguage": "tr"
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://karisikkaset.online/#organization",
+          "name": "Karışık Kaset",
+          "url": "https://karisikkaset.online/",
+          "logo": "https://karisikkaset.online/music.png"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://karisikkaset.online/#website",
+          "name": "Karışık Kaset",
+          "url": "https://karisikkaset.online/",
+          "publisher": { "@id": "https://karisikkaset.online/#organization" },
+          "inLanguage": "tr"
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://karisikkaset.online/#application",
+          "name": "Karışık Kaset",
+          "url": "https://karisikkaset.online/",
+          "description": "Çevrimiçi radyo istasyonları ve SoundCloud destekli retro kaset çalar.",
+          "applicationCategory": "MusicApplication",
+          "operatingSystem": "Any",
+          "inLanguage": "tr",
+          "publisher": { "@id": "https://karisikkaset.online/#organization" }
+        }
+      ]
     }
   </script>
 
@@ -40,9 +67,10 @@
        BOOMBOX WRAPPER
   ════════════════════════════════════════════════════ -->
   <main class="app-bg">
+    <h1 class="sr-only">Karışık Kaset: online radyo ve retro kaset çalar</h1>
 
     <div class="cassette-robot-launcher cassette-robot-launcher-desktop">
-      <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="" aria-hidden="true" />
+      <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="Kaset oluşturma robotu" width="220" height="220" decoding="async" />
       <span class="robot-label">KASETİNİ YAP</span>
       <button class="robot-open-button" type="button" data-open-cassette-builder aria-haspopup="dialog" aria-controls="cassette-builder-dialog" aria-label="Kaset oluşturucuyu aç"></button>
       <button class="robot-hide-antenna" type="button" data-hide-cassette-robot title="Antene tıkla: robotu gizle" aria-label="Antene tıkla: robotu gizle"></button>
@@ -73,7 +101,10 @@
 
       <div class="wall-column">
         <figure class="wall-frame wall-frame-right">
-          <img id="wall-picture-right" alt="" />
+          <picture>
+            <source srcset="/arkaplan/background.webp" type="image/webp" />
+            <img id="wall-picture-right" src="/arkaplan/background.jpg" alt="Karışık Kaset retro oda dekorasyonu" width="320" height="240" loading="eager" decoding="async" fetchpriority="high" />
+          </picture>
         </figure>
 
         <div class="svg-corkboard-wrapper" aria-label="Mantar pano">
@@ -461,6 +492,23 @@
       </div>
     </div>
 
+    <button class="mobile-shelf-toggle" id="mobile-shelf-toggle" type="button" aria-expanded="false" aria-controls="mobile-shelf-drawer">
+      <span class="mobile-shelf-toggle-icon" aria-hidden="true">▥</span>
+      <span>Kaset rafı</span>
+    </button>
+    <div class="mobile-shelf-backdrop" id="mobile-shelf-backdrop" hidden></div>
+    <aside class="mobile-shelf-drawer" id="mobile-shelf-drawer" aria-labelledby="mobile-shelf-title" aria-hidden="true" tabindex="-1">
+      <div class="mobile-shelf-heading">
+        <div>
+          <p class="song-request-eyebrow">KARIŞIK KASET</p>
+          <h2 id="mobile-shelf-title">Kaset rafı</h2>
+        </div>
+        <button class="mobile-shelf-close" id="mobile-shelf-close" type="button" aria-label="Kaset rafını kapat">×</button>
+      </div>
+      <p class="mobile-shelf-hint">Bir kasete dokunarak çalmaya başlayabilirsin.</p>
+      <div class="mobile-shelf-list" id="mobile-shelf-list" aria-live="polite"></div>
+    </aside>
+
     <dialog class="tape-collection-dialog" id="tape-collection-dialog" aria-labelledby="tape-collection-title">
       <div class="tape-collection-heading">
         <div>
@@ -584,7 +632,7 @@
       </form>
     </dialog>
 
-    <div class="boombox-row">
+    <div class="boombox-row" id="radio-player">
 
       <!-- Sol hoparlör ızgarası -->
       <aside class="speaker-grille speaker-left" aria-label="Sol hoparlör">
@@ -615,7 +663,7 @@
             <circle cx="20" cy="14" r="2.1" />
             <path d="M14.2 14h3.6M9 10h2m10 0h2" />
           </svg>
-          <h1>Karışık Kaset</h1>
+          <span class="boombox-title" role="heading" aria-level="2">Karışık Kaset</span>
         </div>
 
         <!-- ─── Üst satır: Tuning knob / Spectrum / Volume knob ─── -->
@@ -1100,7 +1148,7 @@
               </h2>
               <span class="playlist-count" id="track-count">0 tracks</span>
               <div class="cassette-robot-launcher cassette-robot-launcher-inline">
-                <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="" aria-hidden="true" />
+          <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="Kaset oluşturma robotu" width="220" height="220" decoding="async" />
                 <span class="robot-label">KASETİNİ YAP</span>
                 <button class="robot-open-button" id="open-cassette-builder" type="button" data-open-cassette-builder aria-haspopup="dialog" aria-controls="cassette-builder-dialog" aria-label="Kaset oluşturucuyu aç"></button>
                 <button class="robot-hide-antenna" type="button" data-hide-cassette-robot title="Antene tıkla: robotu gizle" aria-label="Antene tıkla: robotu gizle"></button>
@@ -1149,11 +1197,19 @@
 
   </main>
 
-  <section class="seo-content" aria-labelledby="seo-content-title">
+  <section class="seo-content" id="about" aria-labelledby="seo-content-title">
     <h2 id="seo-content-title">Online radyo dinle, retro kaset çaları keşfet</h2>
     <p>Karışık Kaset, tarayıcıdan çevrimiçi radyo istasyonlarını dinleyebileceğin ve SoundCloud bağlantılarıyla hazırlanan kaset koleksiyonlarını çalabileceğin retro tasarımlı bir müzik uygulamasıdır. Radyo listesinden bir istasyon seçebilir, kaset kategorilerine göz atabilir ve oynatıcıyı telefonunda, tabletinde veya bilgisayarında kullanabilirsin.</p>
     <p>Radyo yayınları ilgili istasyonların sunucularından, kaset parçaları SoundCloud oynatıcısından aktarılır. Bu nedenle içeriklerin kullanılabilirliği kaynak sağlayıcıların yayınına bağlıdır.</p>
   </section>
+  <nav class="seo-internal-nav" aria-label="Karışık Kaset iç bağlantıları">
+    <a href="/">Ana sayfa</a>
+    <a href="#radio-player">Online radyo</a>
+    <a href="#tape-collection-dialog">Kaset koleksiyonu</a>
+    <a href="#song-request-dialog">Şarkı isteği</a>
+    <a href="#about">Hakkımızda</a>
+    <a href="#legal-notice-dialog">Yasal bilgiler</a>
+  </nav>
 
   <dialog class="legal-dialog" id="cookie-policy-dialog" aria-labelledby="cookie-policy-title">
     <div class="legal-dialog-heading">
@@ -1191,14 +1247,16 @@
     id="sc-iframe"
     src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/forss/flickermood&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false"
     allow="autoplay"
+    loading="lazy"
+    fetchpriority="low"
     style="position:absolute;width:1px;height:1px;top:-9999px;left:-9999px;border:0;"
     title="SoundCloud Player"
   ></iframe>
 
   <!-- SoundCloud Widget API -->
-  <script src="https://w.soundcloud.com/player/api.js"></script>
+  <script src="https://w.soundcloud.com/player/api.js" defer></script>
   <!-- Uygulama -->
   <!-- TRACKER_BODY_CODE -->
-  <script src="app.js?v=cassette-maker-20261113-7" defer></script>
+  <script src="app.js?v=seo-performance-20261114-1" defer></script>
 </body>
 </html>

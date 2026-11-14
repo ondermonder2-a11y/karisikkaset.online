@@ -998,3 +998,39 @@ dialog::backdrop { background: rgba(0,0,0,0.65); }
   text-align: center;
 }
 .rs-freq-input:focus { border-color: var(--gold); outline: none; }
+
+
+/* Kaset yedekleme kontrolleri */
+.tape-backup-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg2);
+}
+.tape-backup-controls strong,
+.tape-backup-controls .muted { display: block; }
+.tape-backup-controls .muted { margin-top: 3px; font-size: .75rem; }
+.tape-backup-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.tape-backup-actions select { min-height: 32px; max-width: 260px; }
+@media (max-width: 720px) {
+  .tape-backup-controls { align-items: stretch; flex-direction: column; }
+  .tape-backup-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .tape-backup-actions select { grid-column: 1 / -1; max-width: none; width: 100%; }
+}
+
+.request-delete-button {
+  margin-left: auto;
+  border: 1px solid #92443c;
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: #672d28;
+  color: #fff0ed;
+  font-size: .74rem;
+  font-weight: 700;
+}
+.request-delete-button:hover { background: #873a32; }

@@ -13,6 +13,9 @@ body {
   background-image:
     linear-gradient(rgba(18,16,13,0.28), rgba(18,16,13,0.38)),
     var(--page-background-image, radial-gradient(ellipse at center, #e8d8ba 0%, #c7ae88 100%));
+  background-image:
+    linear-gradient(rgba(18,16,13,0.28), rgba(18,16,13,0.38)),
+    image-set(url("/arkaplan/background.webp") type("image/webp"), url("/arkaplan/background.jpg") type("image/jpeg"));
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -3248,3 +3251,203 @@ body.cassette-robot-is-hidden .robot-restore-inline { display: inline-flex; }
 @media (prefers-reduced-motion: reduce) {
   .cassette-robot-launcher { transition: none; }
 }
+
+
+/* ─── Mobil kaset rafı çekmecesi ─────────────────────────────────────────── */
+.mobile-shelf-toggle,
+.mobile-shelf-backdrop,
+.mobile-shelf-drawer {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-shelf-toggle {
+    position: fixed;
+    z-index: 40;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 42px;
+    padding: 0 13px 0 11px;
+    border: 1px solid rgba(255, 230, 176, 0.58);
+    border-radius: 999px;
+    background: linear-gradient(145deg, #41372d, #211d19);
+    color: #ffe9b2;
+    box-shadow: 0 7px 18px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255,255,255,.12);
+    font: 800 .72rem/1 system-ui, sans-serif;
+    letter-spacing: .04em;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mobile-shelf-toggle:active { transform: translateY(1px); }
+  .mobile-shelf-toggle:focus-visible,
+  .mobile-shelf-close:focus-visible,
+  .mobile-shelf-card:focus-visible {
+    outline: 3px solid #f4c96e;
+    outline-offset: 3px;
+  }
+  .mobile-shelf-toggle-icon { font-size: 1.15rem; line-height: 1; }
+
+  .mobile-shelf-backdrop {
+    position: fixed;
+    z-index: 49;
+    inset: 0;
+    background: rgba(5, 6, 7, .64);
+    backdrop-filter: blur(2px);
+  }
+  .mobile-shelf-backdrop:not([hidden]) { display: block; }
+
+  .mobile-shelf-drawer {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    width: min(88vw, 360px);
+    height: 100dvh;
+    padding: max(20px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+    overflow: hidden;
+    border-left: 2px solid rgba(225, 174, 91, .62);
+    background: linear-gradient(90deg, rgba(255,255,255,.035), transparent 22%), linear-gradient(160deg, #4b3828, #241d18 72%);
+    color: #f5ead2;
+    box-shadow: -18px 0 42px rgba(0,0,0,.48);
+    transform: translateX(105%);
+    transition: transform .28s cubic-bezier(.22,.78,.24,1);
+    visibility: hidden;
+  }
+  .mobile-shelf-drawer.is-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  body.mobile-shelf-open { overflow: hidden; }
+
+  .mobile-shelf-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 229, 177, .2);
+  }
+  .mobile-shelf-heading .song-request-eyebrow { margin: 0 0 4px; color: #d9aa5e; }
+  .mobile-shelf-heading h2 { margin: 0; font-size: 1.35rem; }
+  .mobile-shelf-close {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border: 1px solid rgba(255, 230, 176, .38);
+    border-radius: 9px;
+    background: rgba(0,0,0,.2);
+    color: #ffe9b2;
+    font-size: 1.65rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .mobile-shelf-hint {
+    margin: 13px 2px 12px;
+    color: #cbbda3;
+    font-size: .78rem;
+    line-height: 1.45;
+  }
+  .mobile-shelf-list {
+    display: grid;
+    gap: 9px;
+    min-height: 0;
+    padding: 2px 3px 20px 1px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: #ae7b43 transparent;
+  }
+  .mobile-shelf-card {
+    display: grid;
+    grid-template-columns: 35px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 64px;
+    padding: 9px 10px;
+    border: 1px solid rgba(255, 229, 177, .2);
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(239, 205, 145, .17), rgba(0,0,0,.18));
+    color: #f8ecd3;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease, transform .18s ease;
+  }
+  .mobile-shelf-card:hover,
+  .mobile-shelf-card:active,
+  .mobile-shelf-card.is-active {
+    border-color: #e6b765;
+    background: linear-gradient(145deg, rgba(239, 185, 90, .3), rgba(0,0,0,.2));
+  }
+  .mobile-shelf-card:active { transform: scale(.985); }
+  .mobile-shelf-card-spine {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 46px;
+    border: 1px solid rgba(255,255,255,.45);
+    border-radius: 4px;
+    box-shadow: inset 3px 0 rgba(255,255,255,.12), 2px 3px 5px rgba(0,0,0,.3);
+    color: rgba(255,255,255,.9);
+    font-size: .55rem;
+    font-weight: 900;
+    writing-mode: vertical-rl;
+    overflow: hidden;
+  }
+  .mobile-shelf-card-info { min-width: 0; }
+  .mobile-shelf-card-label,
+  .mobile-shelf-card-category {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-shelf-card-label { font-weight: 800; font-size: .82rem; }
+  .mobile-shelf-card-category { margin-top: 4px; color: #c9baa0; font-size: .7rem; }
+  .mobile-shelf-card-play { color: #f2c873; font-size: 1rem; }
+  .mobile-shelf-empty { padding: 18px 8px; color: #cbbda3; font-size: .82rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shelf-drawer { transition: none; }
+  .mobile-shelf-card { transition: none; }
+}
+
+
+/* ─── SEO semantiği ve iç bağlantı ağı ───────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.boombox-brand .boombox-title {
+  margin: 0;
+  font: inherit;
+}
+.seo-internal-nav {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  width: min(100% - 32px, 920px);
+  margin: 14px auto 28px;
+  color: #e8d3a6;
+  font-size: .78rem;
+}
+.seo-internal-nav a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.seo-internal-nav a:hover,
+.seo-internal-nav a:focus-visible { color: #fff1c7; }

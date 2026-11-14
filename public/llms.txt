@@ -1,0 +1,20 @@
+# Karışık Kaset
+
+> Karışık Kaset, tarayıcı üzerinden çevrimiçi radyo istasyonları dinlemeyi ve retro kaset koleksiyonlarını çalmayı sağlayan Türkçe bir müzik uygulamasıdır.
+
+## Ana sayfa
+- URL: https://karisikkaset.online/
+- Dil: Türkçe
+- Tür: Online radyo, retro kaset çalar, müzik uygulaması
+
+## Özellikler
+- Çevrimiçi radyo istasyonlarını dinleme
+- Retro kaset koleksiyonlarını ve SoundCloud bağlantılarını oynatma
+- Mobil uyumlu kaset rafı ve radyo arayüzü
+- Kullanıcıların şarkı isteği gönderebilmesi
+
+## İçerik ve haklar
+Radyo yayınları ilgili istasyonların sunucularından, kaset parçaları üçüncü taraf SoundCloud oynatıcısından aktarılır. Eser, kayıt ve yayın hakları ilgili hak sahiplerine aittir. Ayrıntılar ana sayfadaki yasal uyarı ve çerez politikası bölümlerinde açıklanır.
+
+## İletişim
+- Telif ve içerik bildirimleri: info@karisikkaset.online

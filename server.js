@@ -33,7 +33,7 @@ import { fileURLToPath } from 'url';
   } catch { /* .env yoksa sessizce geç */ }
 }
 // ─────────────────────────────────────────────────────────────────────────────
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import https from 'https';
 import http from 'http';
@@ -177,14 +177,19 @@ let stationCheckRun = null;
 const STATION_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const STATION_CHECK_CONCURRENCY = 4;
 const DNS_LOOKUP_TIMEOUT_CODE = 'DNS_LOOKUP_TIMEOUT';
+const PLAYLIST_TOO_LARGE_CODE = 'PLAYLIST_TOO_LARGE';
 const customCassetteRateLimits = new Map();
 const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
 const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
 const TAPE_ORDER_DATA_PATH = join(__dirname, 'data', 'tape-order.json');
+const TAPE_BACKUP_DIR = join(__dirname, 'data', 'backups', 'tapes');
+const TAPE_BACKUP_LIMIT = 30;
 const SITE_CODE_DATA_PATH = join(__dirname, 'data', 'site-code.json');
 const MAX_SITE_CODE_LENGTH = 32 * 1024;
 const CUSTOM_CASSETTE_MAX_TRACKS = 20;
 const CUSTOM_CASSETTE_MAX_PER_EMAIL = 12;
+const SONG_REQUESTS_PATH = join(__dirname, 'data', 'song-requests.jsonl');
+let songRequestWriteChain = Promise.resolve();
 let customCassetteSecretPromise = null;
 let customCassetteWriteChain = Promise.resolve();
 
@@ -415,6 +420,36 @@ async function readAdminTapes() {
   return applyTapeOrder(tapes, await readTapeOrder());
 }
 
+async function createTapeBackup(reason = 'manual') {
+  const tapesDir = join(__dirname, 'config', 'tapes');
+  await mkdir(TAPE_BACKUP_DIR, { recursive: true });
+  const files = [];
+  for (const file of (await readdir(tapesDir)).filter(name => name.endsWith('.json')).sort()) {
+    const raw = await readFile(join(tapesDir, file), 'utf8');
+    files.push({ file, data: JSON.parse(raw) });
+  }
+  const createdAt = new Date().toISOString();
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const backup = { version: 1, id, createdAt, reason, order: await readTapeOrder(), files };
+  await writeJSONAtomic(join(TAPE_BACKUP_DIR, `${id}.json`), backup);
+
+  const old = (await readdir(TAPE_BACKUP_DIR)).filter(file => file.endsWith('.json')).sort().reverse();
+  await Promise.all(old.slice(TAPE_BACKUP_LIMIT).map(file => unlink(join(TAPE_BACKUP_DIR, file))));
+  return { id, createdAt, reason, tapeCount: files.length };
+}
+
+async function readTapeBackup(id) {
+  if (!/^[0-9]{13}-[a-z0-9]{6}$/.test(id)) throw new Error('Yedek kimliği geçersiz.');
+  const { data, warning } = await readJSON(join(TAPE_BACKUP_DIR, `${id}.json`));
+  if (warning || !data || data.version !== 1 || !Array.isArray(data.files)) {
+    throw new Error(warning || 'Kaset yedeği geçersiz.');
+  }
+  if (data.files.some(item => !/^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/.test(item.file))) {
+    throw new Error('Kaset yedeğinde geçersiz dosya adı var.');
+  }
+  return data;
+}
+
 async function readTapeOrder() {
   const { data, warning } = await readJSON(TAPE_ORDER_DATA_PATH);
   if (warning === 'Dosya bulunamadı.') return [];
@@ -562,7 +597,7 @@ async function normalizeCustomRadioTracks(value) {
 }
 
 async function probeStation(station) {
-  const streamUrls = await resolveStreamUrl(station.streamUrl);
+  const streamUrls = await resolveStreamUrl(station.streamUrl, { allowOversizedFallback: false });
   let lastResult = null;
   let inconclusiveResult = null;
   for (const streamUrl of streamUrls.slice(0, 5)) {
@@ -581,6 +616,9 @@ async function probeStation(station) {
 function connectionFailure(error) {
   if (error?.code === DNS_LOOKUP_TIMEOUT_CODE) {
     return { healthy: null, message: 'Sunucuda DNS yanıtı zamanında alınamadı; bu sonuç yayının kapalı olduğunu doğrulamaz.' };
+  }
+  if (error?.code === PLAYLIST_TOO_LARGE_CODE) {
+    return { healthy: null, message: 'Playlist 1 MB sınırını aştı; yayın durumu doğrulanamadı.' };
   }
   return { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
 }
@@ -687,11 +725,13 @@ async function fetchText(value, redirectsLeft = 5) {
     response.on('data', chunk => {
       body += chunk;
       if (body.length > 1024 * 1024) {
+        const error = new Error('Playlist dosyası 1 MB sınırını aştı.');
+        error.code = PLAYLIST_TOO_LARGE_CODE;
         response.destroy();
-        reject(new Error('Playlist dosyası 1 MB sınırını aştı.'));
+        reject(error);
       }
     });
-    response.on('end', () => resolve(body));
+    response.on('end', () => resolve({ text: body, url: url.toString() }));
     response.on('error', reject);
   });
 }
@@ -711,18 +751,19 @@ function parsePLS(text) {
 // ─────────────────────────────────────────────
 // M3U/M3U8 içeriğini ayrıştır → [url, url, ...]
 // ─────────────────────────────────────────────
-function parseM3U(text) {
+function parseM3U(text, baseUrl) {
   return text
     .split(/\r?\n/)
     .map(l => l.trim())
-    .filter(l => l && !l.startsWith('#'));
+    .filter(l => l && !l.startsWith('#'))
+    .map(entry => new URL(entry, baseUrl).toString());
 }
 
 // ─────────────────────────────────────────────
 // Verilen URL bir playlist mi? → Gerçek stream URL'lerini döner.
 // Playlist değilse URL'nin kendisini dizi içinde döner.
 // ─────────────────────────────────────────────
-async function resolveStreamUrl(url) {
+async function resolveStreamUrl(url, { allowOversizedFallback = true } = {}) {
   const lower = url.toLowerCase().split('?')[0];
 
   // Uzantıya göre karar ver
@@ -732,12 +773,16 @@ async function resolveStreamUrl(url) {
   if (!isPls && !isM3u) return [url]; // Zaten doğrudan stream URL'si
 
   try {
-    const text = await fetchText(url);
-    const urls = isPls ? parsePLS(text) : parseM3U(text);
+    const playlist = await fetchText(url);
+    const entries = isPls ? parsePLS(playlist.text) : parseM3U(playlist.text, playlist.url);
+    const urls = isPls
+      ? entries.map(entry => new URL(entry, playlist.url).toString())
+      : entries;
     if (urls.length === 0) throw new Error('Playlist boş veya ayrıştırılamadı.');
     console.log(`[resolve] ${url} → ${urls.length} giriş bulundu`);
     return urls;
   } catch (err) {
+    if (err?.code === PLAYLIST_TOO_LARGE_CODE && !allowOversizedFallback) throw err;
     console.warn(`[resolve] Playlist çözümlenemedi (${err.message}), URL olduğu gibi kullanılıyor.`);
     return [url];
   }
@@ -928,7 +973,19 @@ app.delete('/api/heartbeat', heartbeatRateLimit, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/listeners', requireAdmin, requireSameOrigin, listenersRateLimit, (req, res) => {
+app.get('/api/listeners', listenersRateLimit, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  pruneListeners();
+  let radio = 0;
+  let tape = 0;
+  for (const listener of listeners.values()) {
+    if (listener.mode === 'radio') radio++;
+    else tape++;
+  }
+  res.json({ count: radio + tape, radio, tape, updatedAt: new Date().toISOString() });
+});
+
+app.get('/api/admin/listeners', requireAdmin, requireSameOrigin, listenersRateLimit, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   pruneListeners();
   const now = Date.now();
@@ -970,8 +1027,24 @@ app.get(['/', '/index.html'], async (req, res) => {
     res.status(500).send('Ana sayfa yüklenemedi.');
   }
 });
-app.use(express.static(join(__dirname, 'public')));
-app.use('/arkaplan', express.static(join(__dirname, 'arkaplan')));
+app.use(express.static(join(__dirname, 'public'), {
+  maxAge: '1d',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(?:png|jpe?g|webp|avif|svg|ico)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    }
+  },
+}));
+app.use('/arkaplan', express.static(join(__dirname, 'arkaplan'), {
+  maxAge: '30d',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(?:png|jpe?g|webp|avif)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    }
+  },
+}));
 
 app.use('/api/admin', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -1178,6 +1251,72 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
+app.get('/api/admin/tapes/backups', async (req, res) => {
+  try {
+    await mkdir(TAPE_BACKUP_DIR, { recursive: true });
+    const backups = [];
+    for (const file of (await readdir(TAPE_BACKUP_DIR)).filter(name => name.endsWith('.json')).sort().reverse()) {
+      try {
+        const info = await stat(join(TAPE_BACKUP_DIR, file));
+        const id = file.replace(/\.json$/i, '');
+        const { data } = await readJSON(join(TAPE_BACKUP_DIR, file));
+        backups.push({ id, createdAt: data?.createdAt || info.mtime.toISOString(), reason: data?.reason || 'backup', tapeCount: data?.files?.length || 0 });
+      } catch { /* Bozuk tek bir yedek listeyi durdurmasın. */ }
+    }
+    res.json({ backups });
+  } catch (error) {
+    res.status(500).json({ error: `Kaset yedekleri okunamadı: ${error.message}` });
+  }
+});
+
+app.post('/api/admin/tapes/backups', async (req, res) => {
+  try {
+    const backup = await createTapeBackup('manual');
+    const data = await readTapeBackup(backup.id);
+    res.status(201).json({ backup, data });
+  } catch (error) {
+    console.error('[admin] Kaset yedeği oluşturulamadı:', error.message);
+    res.status(500).json({ error: `Kaset yedeği oluşturulamadı: ${error.message}` });
+  }
+});
+
+app.get('/api/admin/tapes/backups/:id/download', async (req, res) => {
+  try {
+    const data = await readTapeBackup(req.params.id);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="karisik-kaset-yedek-${data.id}.json"`);
+    res.json(data);
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/tapes/backups/:id/restore', async (req, res) => {
+  try {
+    const backup = await readTapeBackup(req.params.id);
+    await createTapeBackup('before-restore');
+    const tapesDir = join(__dirname, 'config', 'tapes');
+    const wanted = new Set(backup.files.map(item => item.file));
+    for (const file of (await readdir(tapesDir)).filter(name => name.endsWith('.json'))) {
+      if (!wanted.has(file)) await unlink(join(tapesDir, file));
+    }
+    for (const item of backup.files) {
+      const parsed = Array.isArray(item.data)
+        ? { label: item.file.replace(/\.json$/i, ''), category: 'Diğer', color: '#1a237e', tracks: item.data }
+        : item.data;
+      const valid = validateTape({ ...parsed, category: parsed.category || 'Diğer' });
+      await writeJSONAtomic(join(tapesDir, item.file), valid);
+    }
+    if (Array.isArray(backup.order)) {
+      await writeJSONAtomic(TAPE_ORDER_DATA_PATH, backup.order);
+    }
+    res.json({ restored: true, tapeCount: backup.files.length, createdAt: backup.createdAt });
+  } catch (error) {
+    console.error('[admin] Kaset yedeği geri yüklenemedi:', error.message);
+    res.status(400).json({ error: `Kaset yedeği geri yüklenemedi: ${error.message}` });
+  }
+});
+
 app.put('/api/admin/tape-order', async (req, res) => {
   const { order } = req.body || {};
   if (
@@ -1196,6 +1335,7 @@ app.put('/api/admin/tape-order', async (req, res) => {
       return res.status(409).json({ error: 'Kaset listesi değişti. Listeyi yenileyip tekrar deneyin.' });
     }
 
+    await createTapeBackup('before-order-change');
     await mkdir(dirname(TAPE_ORDER_DATA_PATH), { recursive: true });
     await writeJSONAtomic(TAPE_ORDER_DATA_PATH, order);
     res.json({ tapes: await readAdminTapes() });
@@ -1237,6 +1377,7 @@ app.post('/api/admin/tapes', async (req, res) => {
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
+    await createTapeBackup('before-create');
     await writeJSONAtomic(filePath, tape);
     res.status(201).json({ tape: { id, ...tape } });
   } catch (error) {
@@ -1259,6 +1400,7 @@ app.put('/api/admin/tapes/:id', async (req, res) => {
   try {
     const filePath = join(__dirname, 'config', 'tapes', `${req.params.id}.json`);
     await readFile(filePath);
+    await createTapeBackup('before-update');
     await writeJSONAtomic(filePath, tape);
     res.json({ tape: { id: req.params.id, ...tape } });
   } catch (error) {
@@ -1273,6 +1415,7 @@ app.delete('/api/admin/tapes/:id', async (req, res) => {
     return res.status(400).json({ error: 'Kaset kimliği geçersiz.' });
   }
   try {
+    await createTapeBackup('before-delete');
     await unlink(join(__dirname, 'config', 'tapes', `${req.params.id}.json`));
     res.json({ deleted: true });
   } catch (error) {
@@ -1347,20 +1490,72 @@ app.get('/api/admin/station-health', async (req, res) => {
   });
 });
 
-app.get('/api/admin/requests', async (req, res) => {
-  const filePath = join(__dirname, 'data', 'song-requests.jsonl');
+function getSongRequestId(line, index, record) {
+  if (typeof record.id === 'string' && /^[a-f0-9]{24}$/.test(record.id)) return record.id;
+  return createHash('sha256').update(`${index}\u0000${line}`).digest('hex').slice(0, 24);
+}
+
+async function readSongRequestEntries() {
+  let raw;
   try {
-    const fileInfo = await stat(filePath);
+    const fileInfo = await stat(SONG_REQUESTS_PATH);
     if (fileInfo.size > 10 * 1024 * 1024) {
-      return res.status(413).json({ error: 'İstek dosyası 10 MB sınırını aştı; sunucu tarafından incelenmesi gerekiyor.' });
+      const error = new Error('İstek dosyası 10 MB sınırını aştı.');
+      error.statusCode = 413;
+      throw error;
     }
-    const raw = await readFile(filePath, 'utf8');
-    const requests = raw.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)).slice(-500).reverse();
+    raw = await readFile(SONG_REQUESTS_PATH, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+
+  return raw.split(/\r?\n/).filter(Boolean).map((line, index) => {
+    const record = JSON.parse(line);
+    return { line, record, id: getSongRequestId(line, index, record) };
+  });
+}
+
+function enqueueSongRequestWrite(operation) {
+  const next = songRequestWriteChain.then(operation);
+  songRequestWriteChain = next.catch(() => {});
+  return next;
+}
+
+app.get('/api/admin/requests', async (req, res) => {
+  try {
+    const entries = await readSongRequestEntries();
+    const requests = entries.slice(-500).reverse().map(({ record, id }) => ({ ...record, id }));
     res.json({ requests });
   } catch (error) {
-    if (error.code === 'ENOENT') return res.json({ requests: [] });
     console.error('[admin] Şarkı istekleri okunamadı:', error.message);
-    res.status(500).json({ error: `Şarkı istekleri okunamadı: ${error.message}` });
+    res.status(error.statusCode || 500).json({ error: error.statusCode === 413
+      ? error.message
+      : 'Şarkı istekleri okunamadı.' });
+  }
+});
+
+app.delete('/api/admin/requests/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!/^[a-f0-9]{24}$/.test(id)) {
+    return res.status(400).json({ error: 'İstek kimliği geçersiz.' });
+  }
+
+  try {
+    const deleted = await enqueueSongRequestWrite(async () => {
+      const entries = await readSongRequestEntries();
+      const remaining = entries.filter(entry => entry.id !== id);
+      if (remaining.length === entries.length) return false;
+      await mkdir(dirname(SONG_REQUESTS_PATH), { recursive: true });
+      const content = remaining.length ? `${remaining.map(entry => entry.line).join('\n')}\n` : '';
+      await writeFile(SONG_REQUESTS_PATH, content, 'utf8');
+      return true;
+    });
+    if (!deleted) return res.status(404).json({ error: 'Şarkı isteği bulunamadı.' });
+    res.json({ deleted: true, id });
+  } catch (error) {
+    console.error('[admin] Şarkı isteği silinemedi:', error.message);
+    res.status(error.statusCode || 500).json({ error: 'Şarkı isteği silinemedi.' });
   }
 });
 
@@ -1391,11 +1586,12 @@ app.post('/api/song-requests', async (req, res) => {
     return res.status(400).json({ error: 'Şarkı adı zorunludur.' });
   }
 
-  const record = { ...request, submittedAt: new Date().toISOString() };
-  const dataDir = join(__dirname, 'data');
+  const record = { id: randomBytes(12).toString('hex'), ...request, submittedAt: new Date().toISOString() };
   try {
-    await mkdir(dataDir, { recursive: true });
-    await appendFile(join(dataDir, 'song-requests.jsonl'), `${JSON.stringify(record)}\n`, 'utf8');
+    await enqueueSongRequestWrite(async () => {
+      await mkdir(dirname(SONG_REQUESTS_PATH), { recursive: true });
+      await appendFile(SONG_REQUESTS_PATH, `${JSON.stringify(record)}\n`, 'utf8');
+    });
     return res.status(201).json({ message: 'Şarkı isteğiniz kaydedildi. Teşekkürler!' });
   } catch (err) {
     console.error('[song-requests] İstek kaydedilemedi:', err.message);
@@ -1892,6 +2088,7 @@ app.post('/api/admin/validate-tape/:id', async (req, res) => {
 
   // autoClean: ölü linkleri dosyadan kaldır
   if (autoClean && dead.length > 0) {
+    await createTapeBackup('before-auto-clean');
     const deadIndices = new Set(dead.map(r => r.idx));
     const cleanedTracks = tracks.filter((_, i) => !deadIndices.has(i));
     const cleanedTape   = { ...data, tracks: cleanedTracks };
@@ -1983,6 +2180,7 @@ app.post('/api/admin/import-playlist', async (req, res) => {
   const filePath = join(__dirname, 'config', 'tapes', `${id}.json`);
 
   try {
+    await createTapeBackup('before-import');
     await writeJSONAtomic(filePath, validTape);
   } catch (err) {
     console.error('[import] Kaset kaydedilemedi:', err.message);

@@ -238,7 +238,7 @@ function updateStats() {
 /* ═══════════════════════════════════════════════
    CANLI DİNLEYİCİ DURUMU
    Player'lar 20 sn'de bir /api/heartbeat gönderir,
-   pano 5 sn'de bir /api/listeners üzerinden sayar.
+   pano 5 sn'de bir /api/admin/listeners üzerinden ayrıntıları alır.
    ═══════════════════════════════════════════════ */
 const LIVE_POLL_MS = 5_000;
 const liveCard  = document.getElementById('live-card');
@@ -305,7 +305,7 @@ function renderLiveListeners(data) {
 
 async function refreshLiveListeners() {
   try {
-    const res = await fetch('/api/listeners', {
+    const res = await fetch('/api/admin/listeners', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
       cache: 'no-store',
@@ -740,7 +740,76 @@ const tapeForm      = document.getElementById('tape-form');
 const tracksList    = document.getElementById('tracks-list');
 const tapeEditorTitle = document.getElementById('tape-editor-title');
 const saveTapeOrderBtn = document.getElementById('save-tape-order');
+const backupTapesBtn = document.getElementById('backup-tapes');
+const tapeBackupSelect = document.getElementById('tape-backup-select');
+const restoreTapeBackupBtn = document.getElementById('restore-tape-backup');
+const tapeBackupStatus = document.getElementById('tape-backup-status');
 let tapeOrderDirty = false;
+
+async function loadTapeBackups() {
+  if (!tapeBackupSelect) return;
+  try {
+    const data = await api('/api/admin/tapes/backups');
+    tapeBackupSelect.replaceChildren(new Option('Yedek seç…', ''));
+    (data.backups || []).forEach(backup => {
+      const option = new Option(
+        `${fmt(backup.createdAt)} · ${backup.tapeCount} kaset · ${backup.reason}`,
+        backup.id
+      );
+      tapeBackupSelect.append(option);
+    });
+  } catch (error) {
+    if (tapeBackupStatus) tapeBackupStatus.textContent = `Yedekler okunamadı: ${error.message}`;
+  }
+}
+
+function downloadBackup(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `karisik-kaset-yedek-${data.id || Date.now()}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+backupTapesBtn?.addEventListener('click', async () => {
+  backupTapesBtn.disabled = true;
+  try {
+    const result = await api('/api/admin/tapes/backups', { method: 'POST' });
+    downloadBackup(result.data);
+    Toast.success('Yedek alındı', `${result.backup.tapeCount} kaset yedeklendi ve indirildi.`);
+    await loadTapeBackups();
+  } catch (error) {
+    Toast.error('Yedek alınamadı', error.message);
+  } finally {
+    backupTapesBtn.disabled = false;
+  }
+});
+
+tapeBackupSelect?.addEventListener('change', () => {
+  if (restoreTapeBackupBtn) restoreTapeBackupBtn.disabled = !tapeBackupSelect.value;
+});
+
+restoreTapeBackupBtn?.addEventListener('click', async () => {
+  const id = tapeBackupSelect.value;
+  if (!id || !confirm('Seçilen yedek mevcut kaset listesinin yerine geri yüklensin mi?')) return;
+  restoreTapeBackupBtn.disabled = true;
+  try {
+    const result = await api(`/api/admin/tapes/backups/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+    const data = await api('/api/admin/data');
+    tapes = data.tapes || [];
+    renderShelfPreview();
+    if (tapes.length) setTapeDraft(tapes[0], tapes[0].id);
+    updateStats();
+    Toast.success('Yedek geri yüklendi', `${result.tapeCount} kaset geri yüklendi.`);
+    await loadTapeBackups();
+  } catch (error) {
+    Toast.error('Geri yükleme başarısız', error.message);
+  } finally {
+    restoreTapeBackupBtn.disabled = !tapeBackupSelect.value;
+  }
+});
 
 /** Raf önizlemesini render et */
 function renderShelfPreview() {
@@ -1204,6 +1273,26 @@ document.getElementById('delete-tape').addEventListener('click', async () => {
 const requestsList   = document.getElementById('requests-list');
 const requestsSearch = document.getElementById('requests-search');
 
+async function deleteSongRequest(request, button) {
+  if (!request.id) {
+    Toast.error('Silinemedi.', 'Bu isteğin kimliği bulunamadı. Listeyi yenileyin.');
+    return;
+  }
+  if (!window.confirm(`“${request.song || 'İsimsiz şarkı'}” isteği silinsin mi?`)) return;
+
+  button.disabled = true;
+  try {
+    await api(`/api/admin/requests/${encodeURIComponent(request.id)}`, { method: 'DELETE' });
+    allRequests = allRequests.filter(item => item.id !== request.id);
+    document.getElementById('stat-requests').textContent = allRequests.length;
+    filterRequests();
+    Toast.success('İstek silindi.');
+  } catch (error) {
+    button.disabled = false;
+    Toast.error('İstek silinemedi.', error.message);
+  }
+}
+
 function renderRequests(list) {
   requestsList.replaceChildren();
   document.getElementById('request-stats').innerHTML = list.length
@@ -1229,6 +1318,18 @@ function renderRequests(list) {
       <div class="request-song">${esc(req.song || 'İsimsiz')}${req.artist ? ` <span style="color:var(--text-dim);font-weight:400">— ${esc(req.artist)}</span>` : ''}</div>
       <time class="request-time" datetime="${esc(req.submittedAt || '')}">${req.submittedAt ? fmt(req.submittedAt) : ''}</time>
     `;
+    const headActions = document.createElement('div');
+    headActions.className = 'request-card-actions';
+    const time = head.querySelector('.request-time');
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'request-delete-button';
+    deleteButton.textContent = 'Sil';
+    deleteButton.setAttribute('aria-label', `${req.song || 'Şarkı'} isteğini sil`);
+    deleteButton.addEventListener('click', () => deleteSongRequest(req, deleteButton));
+    if (time) headActions.append(time);
+    headActions.append(deleteButton);
+    head.append(headActions);
 
     const meta = document.createElement('div');
     meta.className = 'request-meta';
@@ -1372,6 +1473,7 @@ async function loadDashboard() {
 
   await loadRequests();
   await loadSiteCode();
+  await loadTapeBackups();
   updateStats();
 }
 

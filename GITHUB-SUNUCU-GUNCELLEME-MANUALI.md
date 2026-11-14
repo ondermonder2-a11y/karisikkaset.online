@@ -171,17 +171,15 @@ Canlı klasörde yerel değişiklik olup olmadığını kontrol edin:
 git status --short
 ```
 
-Özellikle sunucuda elle eklenmiş kaset dosyaları varsa önce yedekleyin:
+Özellikle sunucuda elle eklenmiş kaset veya radyo istasyonu varsa önce tüm canlı yapılandırmayı yedekleyin. Yalnızca üç kaset dosyasını yedeklemek yeterli değildir; `git stash -u` sonrasında diğer yerel dosyalar çalışma ağacına otomatik olarak dönmez.
 
 ```bash
 BACKUP="$HOME/karisikkaset-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP/config/tapes"
 
-cp -a config/tapes/90lar-karisik.json "$BACKUP/config/tapes/" 2>/dev/null || true
-cp -a config/tapes/80-lar-karisik.json "$BACKUP/config/tapes/" 2>/dev/null || true
-cp -a config/tapes/80-ler-90-lar-turkce-pop.json "$BACKUP/config/tapes/" 2>/dev/null || true
-
-git diff -- config/tapes/90lar-karisik.json > "$BACKUP/90lar-karisik.diff" 2>/dev/null || true
+cp -a config/tapes/. "$BACKUP/config/tapes/" 2>/dev/null || true
+cp -a config/stations.json "$BACKUP/config/stations.json" 2>/dev/null || true
+cp -a config/tracks.json "$BACKUP/config/tracks.json" 2>/dev/null || true
 
 echo "Yedek: $BACKUP"
 ```
@@ -229,24 +227,26 @@ git pull --ff-only origin main
 
 `--ff-only` merge çatışması oluşturmaz. Çatışma veya beklenmeyen durum olursa işlemi durdurun; `git reset --hard` çalıştırmayın.
 
-## 7. Sunucudaki yerel kasetleri geri koyma
+## 7. Sunucudaki yerel kaset ve radyo yapılandırmasını geri koyma
 
-Daha önce yedek aldığınız yerel kasetleri kullanmaya devam edecekseniz:
+Daha önce yedek aldığınız tüm yerel yapılandırmayı pull sonrasında geri koyun:
 
 ```bash
 # BACKUP değişkeni hâlâ mevcutsa bunu kullanın.
 # Yeni SSH oturumunda gerekiyorsa gerçek yedek klasörünü yazın:
 BACKUP="/home/onder/karisikkaset-backup-YYYYMMDD-HHMMSS"
 
-cp -a "$BACKUP/config/tapes/90lar-karisik.json" config/tapes/ 2>/dev/null || true
-cp -a "$BACKUP/config/tapes/80-lar-karisik.json" config/tapes/ 2>/dev/null || true
-cp -a "$BACKUP/config/tapes/80-ler-90-lar-turkce-pop.json" config/tapes/ 2>/dev/null || true
+mkdir -p config/tapes
+cp -a "$BACKUP/config/tapes/." config/tapes/ 2>/dev/null || true
+cp -a "$BACKUP/config/stations.json" config/stations.json 2>/dev/null || true
+cp -a "$BACKUP/config/tracks.json" config/tracks.json 2>/dev/null || true
 ```
 
 Kontrol:
 
 ```bash
 find config/tapes -maxdepth 1 -type f -printf '%f\n' | sort
+echo "İstasyon sayısı: $(node -e "const x=require('./config/stations.json'); console.log(Array.isArray(x)?x.length:(x.stations||[]).length)" 2>/dev/null || echo kontrol-edilemedi)"
 git status --short
 ```
 
@@ -311,17 +311,17 @@ Ana sayfa testi:
 curl -I http://127.0.0.1:3005/
 ```
 
-Dinleyici API testi:
+Dinleyici API testi. Public endpoint yalnızca toplam/radyo/kaset sayılarını verir; yayın adları ve süreleri admin oturumuyla `/api/admin/listeners` üzerinden görüntülenir:
 
 ```bash
-curl -sS http://127.0.0.1:3005/api/listeners
+curl -fsS http://127.0.0.1:3005/api/listeners
 echo
 ```
 
-Beklenen başlangıç yanıtı yaklaşık olarak:
+Beklenen yanıt biçimi:
 
 ```json
-{"count":0,"radio":0,"tape":0,"listeners":[]}
+{"count":0,"radio":0,"tape":0,"updatedAt":"..."}
 ```
 
 Log kontrolü:
@@ -366,7 +366,60 @@ echo "$ROLLBACK_TAG"
 
 Acil durumda container'ı durdurmadan önce mutlaka logları ve bu bilgileri kaydedin. `docker system prune`, `docker compose down -v` ve `git reset --hard` komutlarını düşünmeden çalıştırmayın; bunlar veri veya volume kaybına yol açabilir.
 
-## 12. Günlük hızlı güncelleme özeti
+## 12. Otomatik sunucu güncelleme script'i
+
+Proje kökünde bulunan `deploy.sh`, canlı sunucu adımlarını tek komutla çalıştırır. Script şunları otomatik yapar:
+
+- `.env` ve gerekli yönetici değişkenlerini kontrol eder.
+- Sunucudaki tüm `config/tapes` kasetlerini, `stations.json` ve `tracks.json` dosyalarını tarihli bir yedek klasörüne kopyalar.
+- GitHub'dan `main` branch'ini alır.
+- Yerel değişiklikleri stash'e alır ve `git pull --ff-only` uygular.
+- Tüm yerel kaset/radyo yapılandırmasını geri koyar; `.env` ve `data/` silinmez.
+- Compose yapılandırmasını doğrular.
+- Mevcut image için rollback etiketi oluşturur.
+- `app` ve `scraper` image'larını build eder.
+- Servisleri yeniden başlatır.
+- Ana sayfayı ve `/api/listeners` endpoint'ini test eder.
+- Son uygulama loglarını gösterir.
+
+Script'i GitHub'dan sunucuya aldıktan sonra çalıştırın:
+
+```bash
+cd /home/onder/apps/karisikkaset-deploy
+chmod +x deploy.sh
+bash deploy.sh
+```
+
+Script'in varsayılanları:
+
+```text
+APP_DIR=/home/onder/apps/karisikkaset-deploy
+BRANCH=main
+HEALTH_URL=http://127.0.0.1:3005/
+LISTENER_URL=http://127.0.0.1:3005/api/listeners
+```
+
+İhtiyaç halinde tek çalıştırmada değiştirilebilir:
+
+```bash
+APP_DIR=/home/onder/apps/karisikkaset-deploy \
+BRANCH=main \
+HEALTH_URL=http://127.0.0.1:3005/ \
+bash deploy.sh
+```
+
+Script hata verirse mevcut çalışan container'ı otomatik olarak silmez. Önce şu komutlarla inceleyin:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 app
+git status --short
+git stash list
+```
+
+Script'in yazdırdığı `Yedek klasörü` ve `Rollback etiketi` değerlerini saklayın. `docker compose down -v`, `docker system prune` veya `git reset --hard` komutlarını ayrıca doğrulamadan çalıştırmayın.
+
+## 13. Günlük hızlı güncelleme özeti
 
 Yerel bilgisayar:
 
@@ -393,4 +446,11 @@ docker compose ps
 curl -I http://127.0.0.1:3005/
 ```
 
-> Sunucuda `git stash` ile korunan yerel içerikler gerekiyorsa, güncellemeden sonra bunları yedekten geri koyun. Sunucudaki `.env`, `data/` ve Compose volume'larını silmeyin.
+Bu manuel adımlar yerine normal günlük güncellemede doğrudan şu script kullanılabilir:
+
+```bash
+cd /home/onder/apps/karisikkaset-deploy
+bash deploy.sh
+```
+
+> `deploy.sh` artık stash sonrasında yedeklediği tüm kasetleri ve radyo yapılandırmasını otomatik geri koyar. Sunucudaki `.env`, `data/` ve Compose volume'larını silmeyin.
