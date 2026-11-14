@@ -72,7 +72,7 @@ Kategori belirtilmezse kaset `Diğer` altında görünür. JSON dosyaları her i
 
 Kasetler sekmesinde kasetleri sürükleyerek veya klavyede `Alt` + `↑`/`↓` ile sıralayabilir, **Sıralamayı Kaydet** düğmesiyle ana sayfaya uygulayabilirsin. Sıra `data/tape-order.json` dosyasında saklanır.
 
-Radyo bağlantıları sunucu açılışında ve her 15 dakikada bir otomatik kontrol edilir. Player’daki istasyon listesi durumu gösterir; yönetim panelindeki **Tümünü kontrol et** düğmesi kayıtlı istasyonlar için toplu kontrolü başlatır ve ilerlemeyi gösterir. Son kontrol sonuçları `data/station-health.json` içinde tutulur. DNS zaman aşımı veya 1 MB'ı aşan playlist durumunda sonuç belirsiz gösterilir; bu, yayının kapalı olduğunu doğrulamaz. Bir istasyon çevrimdışı görünse bile yeniden denemek için player’dan seçilebilir; durum yalnızca kontrol anındaki sunucu erişilebilirliğini gösterir.
+Radyo bağlantıları otomatik kontrol edilmez. Yönetim panelindeki **Tümünü kontrol et** düğmesiyle istediğin zaman toplu kontrol başlatabilir ve ilerlemeyi görebilirsin. Son kontrol sonuçları `data/station-health.json` içinde tutulur; player’daki istasyon listesi son kayıtlı durumu gösterir. DNS zaman aşımı veya 1 MB'ı aşan playlist durumunda sonuç belirsiz gösterilir; bu, yayının kapalı olduğunu doğrulamaz. Bir istasyon çevrimdışı görünse bile yeniden denemek için player’dan seçilebilir; durum yalnızca kontrol anındaki sunucu erişilebilirliğini gösterir.
 
 Docker kurulumunda sunucudaki proje klasöründe `.env` dosyasını oluştur ve aşağıdaki değerleri kendin belirle:
 

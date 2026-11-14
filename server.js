@@ -174,7 +174,6 @@ function requireSameOrigin(req, res, next) {
 const adminLoginAttempts = new Map();
 const stationHealth = new Map();
 let stationCheckRun = null;
-const STATION_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const STATION_CHECK_CONCURRENCY = 4;
 const DNS_LOOKUP_TIMEOUT_CODE = 'DNS_LOOKUP_TIMEOUT';
 const PLAYLIST_TOO_LARGE_CODE = 'PLAYLIST_TOO_LARGE';
@@ -2253,16 +2252,5 @@ server.listen(PORT, () => {
   console.log('  Yeni istasyon eklemek: config/stations.json dosyasına satır ekle');
   console.log('  Yeni parça eklemek   : config/tracks.json  dosyasına satır ekle\n');
   loadStationHealth()
-    .catch(error => console.error('[station-health] Önceki durumlar yüklenemedi:', error.message))
-    .finally(() => runStationHealthSweep().catch(error => {
-      console.error('[station-health] Otomatik kontrol başlatılamadı:', error.message);
-    }));
-  const stationCheckTimer = setInterval(() => {
-    if (!stationCheckRun) {
-      runStationHealthSweep().catch(error => {
-        console.error('[station-health] Zamanlanmış kontrol başarısız:', error.message);
-      });
-    }
-  }, STATION_CHECK_INTERVAL_MS);
-  stationCheckTimer.unref();
+    .catch(error => console.error('[station-health] Önceki durumlar yüklenemedi:', error.message));
 });
