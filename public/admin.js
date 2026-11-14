@@ -1224,6 +1224,48 @@ document.getElementById('export-requests').addEventListener('click', () => {
 });
 
 /* ═══════════════════════════════════════════════
+   ANA SAYFA KODLARI
+   ═══════════════════════════════════════════════ */
+const adsenseCodeInput = document.getElementById('adsense-code');
+const trackerCodeInput = document.getElementById('tracker-code');
+const siteCodeMessage = document.getElementById('site-code-message');
+
+async function loadSiteCode() {
+  try {
+    const siteCode = await api('/api/admin/site-code');
+    adsenseCodeInput.value = siteCode.adsense || '';
+    trackerCodeInput.value = siteCode.tracker || '';
+  } catch (err) {
+    siteCodeMessage.textContent = `Kodlar yüklenemedi: ${err.message}`;
+    siteCodeMessage.className = 'message error';
+  }
+}
+
+document.getElementById('save-site-code').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  siteCodeMessage.textContent = '';
+  try {
+    await api('/api/admin/site-code', {
+      method: 'PUT',
+      body: JSON.stringify({
+        adsense: adsenseCodeInput.value,
+        tracker: trackerCodeInput.value,
+      }),
+    });
+    siteCodeMessage.textContent = 'Kodlar kaydedildi ve ana sayfada etkinleştirildi.';
+    siteCodeMessage.className = 'message';
+    Toast.success('Site kodları kaydedildi.');
+  } catch (err) {
+    siteCodeMessage.textContent = `Kaydedilemedi: ${err.message}`;
+    siteCodeMessage.className = 'message error';
+    Toast.error('Site kodları kaydedilemedi.', err.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+/* ═══════════════════════════════════════════════
    KLAVYE KISAYOLLARI
    ═══════════════════════════════════════════════ */
 document.addEventListener('keydown', e => {
@@ -1235,6 +1277,8 @@ document.addEventListener('keydown', e => {
       document.getElementById('save-stations').click();
     } else if (activeTab?.dataset.tab === 'tapes') {
       document.getElementById('save-tape').click();
+    } else if (activeTab?.dataset.tab === 'site-code') {
+      document.getElementById('save-site-code').click();
     }
   }
 });
@@ -1254,6 +1298,7 @@ async function loadDashboard() {
   else              setTapeDraft({ label:'', category:'', color:'#1a237e', tracks:[] });
 
   await loadRequests();
+  await loadSiteCode();
   updateStats();
 }
 

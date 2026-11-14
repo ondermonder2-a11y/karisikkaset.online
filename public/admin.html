@@ -99,6 +99,9 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Şarkı İstekleri
         </button>
+        <button class="tab" type="button" data-tab="site-code">
+          Site Kodları
+        </button>
       </nav>
 
       <!-- Global mesaj -->
@@ -329,6 +332,24 @@
         </div>
         <div class="request-stats" id="request-stats"></div>
         <div class="request-list" id="requests-list" aria-live="polite"></div>
+      </section>
+
+      <section class="tab-panel hidden" id="site-code-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Site Kodları</h2>
+            <p class="muted">AdSense ve analiz/izleme sağlayıcınızın kodlarını yönetin. Değişiklikler ana sayfaya hemen yansır.</p>
+          </div>
+          <button class="button btn-sm" id="save-site-code" type="button">Kodları Kaydet</button>
+        </div>
+        <div class="site-code-fields">
+          <label for="adsense-code">AdSense kodu <span class="muted">Ana sayfanın &lt;head&gt; bölümüne eklenir.</span></label>
+          <textarea id="adsense-code" rows="8" maxlength="32768" spellcheck="false" autocomplete="off" placeholder="Google AdSense tarafından verilen kodu buraya yapıştırın."></textarea>
+          <label for="tracker-code">Tracker / analiz kodu <span class="muted">Ana sayfanın kapanış &lt;/body&gt; etiketinden önce eklenir.</span></label>
+          <textarea id="tracker-code" rows="8" maxlength="32768" spellcheck="false" autocomplete="off" placeholder="İzleme sağlayıcınızın kodunu buraya yapıştırın."></textarea>
+        </div>
+        <p class="message" id="site-code-message" role="status" aria-live="polite"></p>
+        <p class="muted site-code-warning">Bu alanlara eklenen kodlar ziyaretçilerin tarayıcısında çalışır. Yalnızca güvendiğiniz sağlayıcılardan aldığınız kodları ekleyin.</p>
       </section>
 
     </div><!-- /workspace -->

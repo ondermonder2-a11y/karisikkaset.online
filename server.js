@@ -118,6 +118,8 @@ const STATION_CHECK_CONCURRENCY = 4;
 const customCassetteRateLimits = new Map();
 const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
 const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
+const SITE_CODE_DATA_PATH = join(__dirname, 'data', 'site-code.json');
+const MAX_SITE_CODE_LENGTH = 32 * 1024;
 const CUSTOM_CASSETTE_MAX_TRACKS = 20;
 const CUSTOM_CASSETTE_MAX_PER_EMAIL = 12;
 let customCassetteSecretPromise = null;
@@ -146,6 +148,24 @@ async function writeJSONAtomic(filePath, data) {
   // Docker Windows volume mount'ta rename() EBUSY/EPERM verebilir.
   // Güvenli yol: doğrudan writeFile (overwrite).
   await writeFile(filePath, content, { encoding: 'utf8' });
+}
+
+async function readSiteCode() {
+  let raw;
+  try {
+    raw = await readFile(SITE_CODE_DATA_PATH, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return { adsense: '', tracker: '' };
+    throw error;
+  }
+  const data = JSON.parse(raw);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Site kodu yapılandırma dosyası geçersiz.');
+  }
+  return {
+    adsense: typeof data.adsense === 'string' ? data.adsense : '',
+    tracker: typeof data.tracker === 'string' ? data.tracker : '',
+  };
 }
 
 function isPublicAddress(address) {
@@ -810,6 +830,23 @@ app.get('/admin', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(join(__dirname, 'public', 'admin.html'));
 });
+app.get(['/', '/index.html'], async (req, res) => {
+  try {
+    const [html, siteCode] = await Promise.all([
+      readFile(join(__dirname, 'public', 'index.html'), 'utf8'),
+      readSiteCode(),
+    ]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('html').send(
+      html
+        .replace('<!-- ADSENSE_HEAD_CODE -->', siteCode.adsense)
+        .replace('<!-- TRACKER_BODY_CODE -->', siteCode.tracker)
+    );
+  } catch (error) {
+    console.error('[site-code] Ana sayfa oluşturulamadı:', error.message);
+    res.status(500).send('Ana sayfa yüklenemedi.');
+  }
+});
 app.use(express.static(join(__dirname, 'public')));
 app.use('/arkaplan', express.static(join(__dirname, 'arkaplan')));
 
@@ -979,6 +1016,33 @@ app.get('/api/admin/scraper-status', async (req, res) => {
 });
 
 app.use('/api/admin', requireAdmin, requireSameOrigin);
+
+app.get('/api/admin/site-code', async (req, res) => {
+  try {
+    res.json(await readSiteCode());
+  } catch (error) {
+    console.error('[admin] Site kodları okunamadı:', error.message);
+    res.status(500).json({ error: `Site kodları okunamadı: ${error.message}` });
+  }
+});
+
+app.put('/api/admin/site-code', async (req, res) => {
+  const { adsense, tracker } = req.body || {};
+  if (
+    typeof adsense !== 'string' || typeof tracker !== 'string' ||
+    adsense.length > MAX_SITE_CODE_LENGTH || tracker.length > MAX_SITE_CODE_LENGTH
+  ) {
+    return res.status(400).json({ error: 'Kod alanları geçersiz veya 32 KB sınırını aşıyor.' });
+  }
+  const siteCode = { adsense, tracker };
+  try {
+    await writeJSONAtomic(SITE_CODE_DATA_PATH, siteCode);
+    res.json(siteCode);
+  } catch (error) {
+    console.error('[admin] Site kodları kaydedilemedi:', error.message);
+    res.status(500).json({ error: `Site kodları kaydedilemedi: ${error.message}` });
+  }
+});
 
 app.get('/api/admin/data', async (req, res) => {
   try {

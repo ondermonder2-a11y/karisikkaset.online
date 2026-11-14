@@ -415,6 +415,17 @@ code { color: #f0d496; font-size: 0.88em; }
   gap: 14px;
   margin: 0 0 16px;
 }
+.site-code-fields { display: grid; gap: 8px; }
+.site-code-fields label:not(:first-child) { margin-top: 12px; }
+.site-code-fields textarea {
+  min-height: 180px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  tab-size: 2;
+}
+.site-code-fields .muted { font-weight: 400; }
+.site-code-warning { margin-top: 12px; }
 .station-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* ─── Station health progress ─── */
