@@ -33,7 +33,6 @@ services:
       SCRAPER_HOST: scraper
       SCRAPER_PORT: 5001
     networks:
-      - default
       - web_proxy
     volumes:
       - ./data:/app/data

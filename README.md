@@ -114,7 +114,7 @@ cd "D:\Projeler\Node\karisikkaset"
 docker compose up --build -d
 ```
 
-Docker Desktop önce açık ve **Engine çalışır durumda** olmalı. Uygulama açılınca [http://localhost:3005](http://localhost:3005) adresine git. Scraper, dış alan adlarını çözebilmek için `web_proxy` ağına da bağlıdır; servisler birbirine Compose servis adlarıyla ulaşır. Hata kayıtlarını görmek için:
+Docker Desktop önce açık ve **Engine çalışır durumda** olmalı. Uygulama açılınca [http://localhost:3005](http://localhost:3005) adresine git. Uygulama ve scraper, dış alan adlarını çözebilmek için `web_proxy` ağına bağlıdır; servisler birbirine Compose servis adlarıyla ulaşır. Hata kayıtlarını görmek için:
 
 ```powershell
 docker compose logs -f app
