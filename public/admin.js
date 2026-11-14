@@ -739,10 +739,13 @@ const tapeShelf     = document.getElementById('tape-shelf-preview');
 const tapeForm      = document.getElementById('tape-form');
 const tracksList    = document.getElementById('tracks-list');
 const tapeEditorTitle = document.getElementById('tape-editor-title');
+const saveTapeOrderBtn = document.getElementById('save-tape-order');
+let tapeOrderDirty = false;
 
 /** Raf önizlemesini render et */
 function renderShelfPreview() {
   tapeShelf.replaceChildren();
+  saveTapeOrderBtn.disabled = !tapeOrderDirty;
   if (!tapes.length) {
     const em = document.createElement('div');
     em.className = 'shelf-tape-empty';
@@ -755,6 +758,9 @@ function renderShelfPreview() {
     btn.type = 'button';
     btn.className = `shelf-tape-item${tape.id === draftTapeId ? ' active' : ''}`;
     btn.setAttribute('aria-label', tape.label);
+    btn.setAttribute('aria-describedby', 'tape-order-help');
+    btn.dataset.tapeId = tape.id;
+    btn.draggable = true;
     btn.innerHTML = `
       <div class="stape-body" style="--tape-color:${esc(tape.color || '#1a237e')}">
         <div class="stape-window">
@@ -768,9 +774,65 @@ function renderShelfPreview() {
       </div>
     `;
     btn.addEventListener('click', () => setTapeDraft(tape, tape.id));
+    btn.addEventListener('dragstart', event => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', tape.id);
+      btn.classList.add('dragging');
+    });
+    btn.addEventListener('dragover', event => {
+      event.preventDefault();
+      const dragged = tapeShelf.querySelector('.shelf-tape-item.dragging');
+      if (!dragged || dragged === btn) return;
+      const horizontal = getComputedStyle(tapeShelf).flexDirection === 'row';
+      const rect = btn.getBoundingClientRect();
+      const pointer = horizontal ? event.clientX : event.clientY;
+      const midpoint = horizontal ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+      tapeShelf.insertBefore(dragged, pointer > midpoint ? btn.nextSibling : btn);
+    });
+    btn.addEventListener('drop', event => event.preventDefault());
+    btn.addEventListener('dragend', () => {
+      btn.classList.remove('dragging');
+      const reordered = Array.from(tapeShelf.querySelectorAll('.shelf-tape-item'))
+        .map(item => item.dataset.tapeId);
+      if (reordered.every((id, index) => id === tapes[index]?.id)) return;
+      tapes = reordered.map(id => tapes.find(tapeEntry => tapeEntry.id === id));
+      tapeOrderDirty = true;
+      renderShelfPreview();
+    });
+    btn.addEventListener('keydown', event => {
+      if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      const index = tapes.findIndex(item => item.id === tape.id);
+      const target = index + (event.key === 'ArrowUp' ? -1 : 1);
+      if (target < 0 || target >= tapes.length) return;
+      [tapes[index], tapes[target]] = [tapes[target], tapes[index]];
+      tapeOrderDirty = true;
+      renderShelfPreview();
+      tapeShelf.querySelectorAll('.shelf-tape-item')[target].focus();
+    });
     tapeShelf.append(btn);
   });
 }
+
+saveTapeOrderBtn.addEventListener('click', async () => {
+  saveTapeOrderBtn.disabled = true;
+  saveTapeOrderBtn.textContent = 'Kaydediliyor…';
+  try {
+    const result = await api('/api/admin/tape-order', {
+      method: 'PUT',
+      body: JSON.stringify({ order: tapes.map(tape => tape.id) }),
+    });
+    tapes = result.tapes;
+    tapeOrderDirty = false;
+    renderShelfPreview();
+    Toast.success('Sıralama kaydedildi', 'Yeni kaset sırası ana sayfaya uygulandı.');
+  } catch (err) {
+    Toast.error('Sıralama kaydedilemedi.', err.message);
+  } finally {
+    saveTapeOrderBtn.textContent = 'Sıralamayı Kaydet';
+    saveTapeOrderBtn.disabled = !tapeOrderDirty;
+  }
+});
 
 /** Parça listesini render et */
 function renderTracks() {
@@ -978,7 +1040,7 @@ document.getElementById('sc-import-confirm').addEventListener('click', async () 
     const saved = result.tape;
     const exists = tapes.findIndex(t => t.id === saved.id);
     if (exists >= 0) tapes[exists] = saved;
-    else tapes = [...tapes, saved].sort((a, b) => a.id.localeCompare(b.id));
+    else tapes = [...tapes, saved];
 
     setTapeDraft(saved, saved.id);
     updateStats();
@@ -1112,9 +1174,7 @@ document.getElementById('save-tape').addEventListener('click', async () => {
       { method: isNew ? 'POST' : 'PUT', body: JSON.stringify({ tape: draftTape }) }
     );
     const saved = result.tape;
-    tapes = isNew
-      ? [...tapes, saved].sort((a, b) => a.id.localeCompare(b.id))
-      : tapes.map(t => t.id === saved.id ? saved : t);
+    tapes = isNew ? [...tapes, saved] : tapes.map(t => t.id === saved.id ? saved : t);
     setTapeDraft(saved, saved.id);
     updateStats();
     Toast.success('Kaydedildi', `"${saved.label}" kaseti kaydedildi.`);
@@ -1302,6 +1362,7 @@ async function loadDashboard() {
   const data = await api('/api/admin/data');
   stations = data.stations || [];
   tapes    = data.tapes    || [];
+  tapeOrderDirty = false;
 
   renderStations();
   await refreshStationHealth();

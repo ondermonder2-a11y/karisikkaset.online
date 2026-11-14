@@ -596,6 +596,9 @@ code { color: #f0d496; font-size: 0.88em; }
 
 /* Kaset rafı önizlemesi */
 .tapes-sidebar .section-heading { margin-bottom: 12px; }
+.tape-order-controls { display: grid; gap: 8px; margin: 0 0 10px; }
+.tape-order-controls p { margin: 0; color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
+.tape-order-controls .button { justify-content: center; }
 .tape-shelf-preview {
   display: flex;
   flex-direction: column;
@@ -616,10 +619,12 @@ code { color: #f0d496; font-size: 0.88em; }
   padding: 2px 1px;
   background: none;
   border: none;
-  cursor: pointer;
+  cursor: grab;
   text-align: left;
   transition: filter 0.1s;
 }
+.shelf-tape-item:active { cursor: grabbing; }
+.shelf-tape-item.dragging { opacity: 0.45; }
 .shelf-tape-item::after {
   content: '';
   display: block;

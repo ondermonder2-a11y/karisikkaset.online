@@ -119,6 +119,7 @@ const DNS_LOOKUP_TIMEOUT_CODE = 'DNS_LOOKUP_TIMEOUT';
 const customCassetteRateLimits = new Map();
 const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
 const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
+const TAPE_ORDER_DATA_PATH = join(__dirname, 'data', 'tape-order.json');
 const SITE_CODE_DATA_PATH = join(__dirname, 'data', 'site-code.json');
 const MAX_SITE_CODE_LENGTH = 32 * 1024;
 const CUSTOM_CASSETTE_MAX_TRACKS = 20;
@@ -350,7 +351,33 @@ async function readAdminTapes() {
       : data;
     tapes.push({ id: file.replace(/\.json$/i, ''), ...validateTape({ ...tape, category: tape.category || 'Diğer' }) });
   }
-  return tapes;
+  return applyTapeOrder(tapes, await readTapeOrder());
+}
+
+async function readTapeOrder() {
+  const { data, warning } = await readJSON(TAPE_ORDER_DATA_PATH);
+  if (warning === 'Dosya bulunamadı.') return [];
+  if (warning) throw new Error(`Kaset sırası okunamadı: ${warning}`);
+  if (
+    !Array.isArray(data) ||
+    data.some(id => typeof id !== 'string' || !id || id.length > 128) ||
+    new Set(data).size !== data.length
+  ) {
+    throw new Error('Kaset sırası dosyası geçersiz.');
+  }
+  return data;
+}
+
+function applyTapeOrder(tapes, order) {
+  const remaining = new Map(tapes.map(tape => [tape.id, tape]));
+  const ordered = [];
+  for (const id of order) {
+    const tape = remaining.get(id);
+    if (!tape) continue;
+    ordered.push(tape);
+    remaining.delete(id);
+  }
+  return [...ordered, ...tapes.filter(tape => remaining.has(tape.id))];
 }
 
 function consumeCustomCassetteRateLimit(req, action) {
@@ -1076,6 +1103,33 @@ app.get('/api/admin/data', async (req, res) => {
   }
 });
 
+app.put('/api/admin/tape-order', async (req, res) => {
+  const { order } = req.body || {};
+  if (
+    !Array.isArray(order) ||
+    order.length > 500 ||
+    order.some(id => typeof id !== 'string' || !id || id.length > 128) ||
+    new Set(order).size !== order.length
+  ) {
+    return res.status(400).json({ error: 'Kaset sırası geçersiz.' });
+  }
+
+  try {
+    const tapes = await readAdminTapes();
+    const currentIds = new Set(tapes.map(tape => tape.id));
+    if (order.length !== currentIds.size || order.some(id => !currentIds.has(id))) {
+      return res.status(409).json({ error: 'Kaset listesi değişti. Listeyi yenileyip tekrar deneyin.' });
+    }
+
+    await mkdir(dirname(TAPE_ORDER_DATA_PATH), { recursive: true });
+    await writeJSONAtomic(TAPE_ORDER_DATA_PATH, order);
+    res.json({ tapes: await readAdminTapes() });
+  } catch (error) {
+    console.error('[admin] Kaset sırası kaydedilemedi:', error.message);
+    res.status(500).json({ error: `Kaset sırası kaydedilemedi: ${error.message}` });
+  }
+});
+
 app.put('/api/admin/stations', async (req, res) => {
   let stations;
   try {
@@ -1358,7 +1412,12 @@ app.get('/api/tapes', async (req, res) => {
     }
   }
 
-  res.json({ tapes });
+  try {
+    res.json({ tapes: applyTapeOrder(tapes, await readTapeOrder()) });
+  } catch (error) {
+    console.error('[tapes] Kaset sırası okunamadı:', error.message);
+    res.status(500).json({ error: 'Kaset sırası okunamadı.' });
+  }
 });
 
 app.post('/api/custom-cassettes/lookup', requireSameOrigin, async (req, res) => {

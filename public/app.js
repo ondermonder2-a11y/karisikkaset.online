@@ -2753,27 +2753,24 @@ class UI {
       ...allEntries.filter(entry => entry.tape?.isCustom),
       ...allEntries.filter(entry => !entry.tape?.isCustom),
     ].slice(0, MAX_SHELF_TAPES);
+    const cassetteColors = ['#8ab097','#c4515c','#467599','#814785','#d4a04a','#637368','#4a7c59','#9b4a6e'];
+    const fallbackTextColors = ['#1d2d24','#fff5f5','#f0f7ff','#fdf4ff','#1a120b','#f1f5f2','#f0fff4','#fff0f7'];
+    const getCassetteColors = (tape, tapeIndex) => {
+      const color = /^#[0-9a-f]{6}$/i.test(tape.color || '')
+        ? tape.color
+        : cassetteColors[tapeIndex % cassetteColors.length];
+      if (!/^#[0-9a-f]{6}$/i.test(tape.color || '')) {
+        return { color, labelColor: fallbackTextColors[tapeIndex % fallbackTextColors.length] };
+      }
+      const channels = color.slice(1).match(/.{2}/g).map(channel => parseInt(channel, 16));
+      const brightness = channels[0] * 0.299 + channels[1] * 0.587 + channels[2] * 0.114;
+      return { color, labelColor: brightness > 150 ? '#1a120b' : '#fff5f5' };
+    };
     svg.setAttribute('viewBox', '0 0 340 165');
 
-    // Keep existing ID matches, then fill any unmatched fixed slots with unassigned tapes.
     const rackSlots = Array.from(svg.querySelectorAll('.svg-tape'));
-    const tapeEntries = shelfTapes;
     const usedTapeIds = new Set();
-    const slotAssignments = rackSlots.map(cassette => {
-      const match = tapeEntries.find(entry =>
-        entry.tape.id === cassette.dataset.tape && !usedTapeIds.has(entry.tape.id)
-      );
-      if (match) usedTapeIds.add(match.tape.id);
-      return match || null;
-    });
-    const unassignedTapes = tapeEntries.filter(({ tape }) => !usedTapeIds.has(tape.id));
-    let nextUnassignedIndex = 0;
-    slotAssignments.forEach((entry, slotIndex) => {
-      if (entry) return;
-      const nextEntry = unassignedTapes[nextUnassignedIndex++] || null;
-      slotAssignments[slotIndex] = nextEntry;
-      if (nextEntry) usedTapeIds.add(nextEntry.tape.id);
-    });
+    const slotAssignments = rackSlots.map((_, slotIndex) => shelfTapes[slotIndex] || null);
 
     rackSlots.forEach((cassette, slotIndex) => {
       const assignment = slotAssignments[slotIndex];
@@ -2781,11 +2778,20 @@ class UI {
       const tapeIndex = assignment?.tapeIndex ?? -1;
       const label = cassette.querySelector('.svg-tape-label');
       cassette.dataset.tape = tape?.id || '';
-      if (label) label.textContent = tape?.label || '';
+      if (label) {
+        label.textContent = tape ? (tape.label.length > 22 ? `${tape.label.slice(0, 21)}…` : tape.label) : '';
+      }
       cassette.classList.toggle('is-empty', !tape);
       cassette.classList.toggle('active-tape', Boolean(tape) && tapeIndex === activeTapeIdx);
       cassette.setAttribute('aria-disabled', String(!tape));
       if (tape) {
+        const fill = Array.from(cassette.querySelectorAll('rect')).find(rect =>
+          rect.getAttribute('x') === '2' && rect.getAttribute('y') === '7'
+        );
+        const colors = getCassetteColors(tape, tapeIndex);
+        if (fill) fill.setAttribute('fill', colors.color);
+        if (label) label.setAttribute('fill', colors.labelColor);
+        usedTapeIds.add(tape.id);
         cassette.setAttribute('role', 'button');
         cassette.setAttribute('tabindex', '0');
         cassette.setAttribute('aria-label', `${tape.label} kasetini seç`);
@@ -2819,12 +2825,7 @@ class UI {
       maxX = nextX;
 
       const ns = 'http://www.w3.org/2000/svg';
-      // Rastgele renk seç
-      const COLORS = ['#8ab097','#c4515c','#467599','#814785','#d4a04a','#637368','#4a7c59','#9b4a6e'];
-      const textColor = ['#1d2d24','#fff5f5','#f0f7ff','#fdf4ff','#1a120b','#f1f5f2','#f0fff4','#fff0f7'];
-      const ci = tapeIndex % COLORS.length;
-      const tapeColor = /^#[0-9a-f]{6}$/i.test(tape.color || '') ? tape.color : COLORS[ci];
-      const labelColor = tape.isCustom ? (tapeColor.toLowerCase() === '#d59333' ? '#1a120b' : '#fff5f5') : textColor[ci];
+      const { color: tapeColor, labelColor } = getCassetteColors(tape, tapeIndex);
 
       const g = document.createElementNS(ns, 'g');
       g.setAttribute('class', `svg-tape${tapeIndex === activeTapeIdx ? ' active-tape' : ''}`);

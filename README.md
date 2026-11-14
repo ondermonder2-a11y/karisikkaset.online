@@ -70,6 +70,8 @@ Kategori belirtilmezse kaset `Diğer` altında görünür. JSON dosyaları her i
 
 `/admin` sayfasından radyo istasyonlarını, kasetleri/parçaları yönetebilir; kaynak URL'lerini sunucudan test edebilir ve son 500 şarkı isteğini görüntüleyebilirsin. Yönetim API'si kullanıcı adı/parola girişi olmadan kullanılamaz. Giriş oturumu `HttpOnly`, `Secure` ve `SameSite=Strict` çereziyle korunur; admin sayfasını HTTPS alan adından aç.
 
+Kasetler sekmesinde kasetleri sürükleyerek veya klavyede `Alt` + `↑`/`↓` ile sıralayabilir, **Sıralamayı Kaydet** düğmesiyle ana sayfaya uygulayabilirsin. Sıra `data/tape-order.json` dosyasında saklanır.
+
 Radyo bağlantıları sunucu açılışında ve her 15 dakikada bir otomatik kontrol edilir. Player’daki istasyon listesi durumu gösterir; yönetim panelindeki **Tümünü kontrol et** düğmesi kayıtlı istasyonlar için toplu kontrolü başlatır ve ilerlemeyi gösterir. Son kontrol sonuçları `data/station-health.json` içinde tutulur. Bir istasyon çevrimdışı görünse bile yeniden denemek için player’dan seçilebilir; durum yalnızca kontrol anındaki sunucu erişilebilirliğini gösterir.
 
 Docker kurulumunda sunucudaki proje klasöründe `.env` dosyasını oluştur ve aşağıdaki değerleri kendin belirle:
