@@ -1099,16 +1099,20 @@ class UI {
 
     this._bindKnobs();
     this._bindTransport();
+    this._bindRadioTransport();
+    this.setRadioControlState(false);
     this._bindProgressBar();
     this._bindKeyboard();
     this._bindRequestBoard();
     this._bindTapeCollection();
     this._bindCassetteShelf();
     this._bindMobileCassetteDrawer();
+    this._bindMobileRadioShelfDrawer();
     this._bindCassetteCreator();
     this._bindRadioCollection();
     this._bindRoomLightSwitch();
     this._bindLegalDialogs();
+    this._bindInternalNavigation();
     this._updateFrequencyClock();
     this._clockTimer = setInterval(() => this._updateFrequencyClock(), 1_000);
     this._powerBootTimer = null;
@@ -1743,13 +1747,96 @@ class UI {
     });
   }
 
+  _makeCassetteFlightClone(source, tape) {
+    if (source.matches?.('.svg-tape')) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.classList.add('physical-tape-flight', 'physical-tape-flight-svg');
+      svg.setAttribute('viewBox', '0 0 22 124');
+      svg.setAttribute('aria-hidden', 'true');
+      const group = source.cloneNode(true);
+      group.removeAttribute('transform');
+      group.removeAttribute('filter');
+      svg.appendChild(group);
+      return svg;
+    }
+    const clone = document.createElement('div');
+    clone.className = 'physical-tape-flight physical-tape-flight-card';
+    const spine = source.querySelector?.('.mobile-shelf-card-spine');
+    clone.style.background = spine?.style.background || tape?.color || '#8a6040';
+    clone.textContent = tape?.label || 'Kaset';
+    clone.setAttribute('aria-hidden', 'true');
+    return clone;
+  }
+
+  _animateCassetteLoad(source, tapeIndex, { commitImmediately = false, onComplete } = {}) {
+    if (this._cassetteLoadAnimating || !source) return Promise.resolve(false);
+    const tape = this._app._tapes?.[tapeIndex];
+    const door = document.querySelector('.cassette-reference-door');
+    const target = document.querySelector('.cassette-reference-window');
+    if (!door || !target || !tape) {
+      onComplete?.();
+      return Promise.resolve(false);
+    }
+
+    this._cassetteLoadAnimating = true;
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const clone = this._makeCassetteFlightClone(source, tape);
+    const startCenterX = sourceRect.left + sourceRect.width / 2;
+    const startCenterY = sourceRect.top + sourceRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const scale = Math.min(targetRect.width / Math.max(sourceRect.height, 1), targetRect.height / Math.max(sourceRect.width, 1));
+    const commit = () => {
+      const wasPlaying = this._app._tapeIsPlaying === true;
+      this._app.switchToTapeBySelector(tapeIndex);
+      if (!wasPlaying) this._app.togglePlay();
+    };
+
+    clone.style.left = `${sourceRect.left}px`;
+    clone.style.top = `${sourceRect.top}px`;
+    clone.style.width = `${sourceRect.width}px`;
+    clone.style.height = `${sourceRect.height}px`;
+    document.body.appendChild(clone);
+    source.classList.add('is-flight-source');
+    door.classList.add('is-opening', 'is-loading');
+    target.classList.add('is-loading');
+    // SFX noktası: kapak açılırken deck-door-open.mp3 sesini burada tetikleyebilirsiniz.
+    // new Audio('/sounds/deck-door-open.mp3').play().catch(() => {});
+
+    if (commitImmediately) commit();
+    const animation = clone.animate([
+      { transform: 'translate3d(0, 0, 0) rotateZ(0deg) scale(1)', opacity: 1 },
+      { transform: `translate3d(${targetCenterX - startCenterX}px, ${targetCenterY - startCenterY}px, 0) rotateZ(90deg) scale(${Math.max(0.35, scale)})`, opacity: 1 }
+    ], {
+      duration: 560,
+      easing: 'cubic-bezier(.18,.78,.2,1)',
+      fill: 'forwards'
+    });
+
+    return animation.finished.then(() => {
+      if (!commitImmediately) commit();
+      target.classList.add('is-loaded');
+      // SFX noktası: kaset yuvaya oturduğunda deck-click.mp3 sesini tetikleyebilirsiniz.
+      // new Audio('/sounds/deck-click.mp3').play().catch(() => {});
+      return new Promise(resolve => window.setTimeout(resolve, 150));
+    }).catch(() => {}).finally(() => {
+      clone.remove();
+      source.classList.remove('is-flight-source');
+      target.classList.remove('is-loading');
+      door.classList.remove('is-opening', 'is-loading');
+      this._cassetteLoadAnimating = false;
+      onComplete?.();
+    }).then(() => true);
+  }
+
   _bindCassetteShelf() {
     const shelf = document.querySelector('.cassette-rack-svg');
     if (!shelf) return;
     const selectCassette = cassette => {
       if (cassette.getAttribute('aria-disabled') === 'true') return;
       const tapeIndex = this._app._tapes.findIndex(tape => tape.id === cassette.dataset.tape);
-      if (tapeIndex >= 0) this._app.switchToTapeBySelector(tapeIndex);
+      if (tapeIndex >= 0) this._animateCassetteLoad(cassette, tapeIndex);
     };
     shelf.addEventListener('click', event => {
       const cassette = event.target.closest('.svg-tape');
@@ -1774,6 +1861,7 @@ class UI {
 
     const close = () => {
       drawer.classList.remove('is-open');
+      drawer.classList.remove('has-selection');
       drawer.setAttribute('aria-hidden', 'true');
       toggle.setAttribute('aria-expanded', 'false');
       backdrop.hidden = true;
@@ -1821,8 +1909,14 @@ class UI {
         play.textContent = '▶';
         card.append(spine, info, play);
         card.addEventListener('click', () => {
-          this._app.switchToTapeBySelector(index);
-          close();
+          card.classList.add('is-inserting');
+          drawer.classList.add('has-selection');
+          // Mobil tarayıcılar gecikmeli auto_play çağrısını engelleyebilir.
+          // Seçim ve play aynı dokunma aktivasyonu içinde yapılır; klon yalnızca görseldir.
+          this._animateCassetteLoad(card, index, {
+            commitImmediately: true
+          });
+          window.setTimeout(close, 260);
         });
         list.appendChild(card);
       });
@@ -1841,6 +1935,81 @@ class UI {
     toggle.addEventListener('click', () => {
       drawer.classList.contains('is-open') ? close() : open();
     });
+    closeButton.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && drawer.classList.contains('is-open')) {
+        close();
+        toggle.focus();
+      }
+    });
+  }
+
+  _bindMobileRadioShelfDrawer() {
+    const toggle = document.getElementById('mobile-radio-shelf-toggle');
+    const drawer = document.getElementById('mobile-radio-shelf-drawer');
+    const backdrop = document.getElementById('mobile-radio-shelf-backdrop');
+    const closeButton = document.getElementById('mobile-radio-shelf-close');
+    const list = document.getElementById('mobile-radio-shelf-list');
+    if (!toggle || !drawer || !backdrop || !closeButton || !list) return;
+
+    const close = () => {
+      drawer.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      toggle.setAttribute('aria-expanded', 'false');
+      backdrop.hidden = true;
+      document.body.classList.remove('mobile-radio-shelf-open');
+    };
+    const render = () => {
+      list.replaceChildren();
+      const stations = Array.isArray(this._app._stations) ? this._app._stations : [];
+      if (!stations.length) {
+        const empty = document.createElement('p');
+        empty.className = 'mobile-radio-shelf-empty';
+        empty.textContent = 'Radyo rafı henüz yüklenmedi.';
+        list.appendChild(empty);
+        return;
+      }
+      stations.forEach((station, index) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'mobile-radio-shelf-card';
+        card.classList.toggle('is-active', this._app._radio?.currentIndex === index);
+        card.setAttribute('aria-label', `${station.name || 'İstasyon'} istasyonunu dinle`);
+        const dial = document.createElement('span');
+        dial.className = 'mobile-radio-shelf-card-dial';
+        dial.textContent = String(Number(station.frequency || 0).toFixed(1));
+        const info = document.createElement('span');
+        info.className = 'mobile-radio-shelf-card-info';
+        const name = document.createElement('span');
+        name.className = 'mobile-radio-shelf-card-name';
+        name.textContent = station.name || 'İsimsiz istasyon';
+        const genre = document.createElement('span');
+        genre.className = 'mobile-radio-shelf-card-genre';
+        genre.textContent = station.genre || 'Radyo istasyonu';
+        info.append(name, genre);
+        const play = document.createElement('span');
+        play.className = 'mobile-radio-shelf-card-play';
+        play.textContent = '▶';
+        play.setAttribute('aria-hidden', 'true');
+        card.append(dial, info, play);
+        card.addEventListener('click', () => {
+          this._app.switchToRadio(index);
+          close();
+        });
+        list.appendChild(card);
+      });
+    };
+    const open = () => {
+      render();
+      drawer.classList.add('is-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      toggle.setAttribute('aria-expanded', 'true');
+      backdrop.hidden = false;
+      document.body.classList.add('mobile-radio-shelf-open');
+      closeButton.focus();
+    };
+    toggle.addEventListener('click', () => drawer.classList.contains('is-open') ? close() : open());
     closeButton.addEventListener('click', close);
     backdrop.addEventListener('click', close);
     document.addEventListener('keydown', event => {
@@ -2042,6 +2211,34 @@ class UI {
     });
   }
 
+  _bindInternalNavigation() {
+    document.querySelectorAll('.seo-internal-nav a').forEach(link => {
+      link.addEventListener('click', event => {
+        const href = link.getAttribute('href') || '';
+        if (!href.startsWith('#')) return;
+
+        const targetId = href.slice(1);
+        const dialogOpeners = {
+          'tape-collection-dialog': 'open-tape-collection',
+          'song-request-dialog': 'open-song-request',
+          'legal-notice-dialog': 'open-legal-notice'
+        };
+        const openerId = dialogOpeners[targetId];
+        if (openerId) {
+          event.preventDefault();
+          document.getElementById(openerId)?.click();
+          return;
+        }
+
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.history.replaceState(null, '', `#${targetId}`);
+      });
+    });
+  }
+
   /* ─── Ruler (FM cetvel) ─── */
   _buildRulerTicks() {
     const container = document.getElementById('ruler-ticks');
@@ -2086,16 +2283,21 @@ class UI {
     if (tuningKnob) {
       tuningKnob.addEventListener('pointerdown', (e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
-        this._tuningDrag = { startY: e.clientY, startFreq: this._currentFreq };
+        this._tuningDrag = { startY: e.clientY, startFreq: this._currentFreq, moved: false };
       });
       tuningKnob.addEventListener('pointermove', (e) => {
         if (!this._tuningDrag) return;
+        if (Math.abs(this._tuningDrag.startY - e.clientY) > 4) this._tuningDrag.moved = true;
         const delta = (this._tuningDrag.startY - e.clientY) / 160; // 160px = tam tarama
         const range = this._FM_MAX - this._FM_MIN;
         const raw = this._tuningDrag.startFreq + delta * range;
         this._setFrequency(Math.max(this._FM_MIN, Math.min(this._FM_MAX, raw)));
       });
-      tuningKnob.addEventListener('pointerup',     () => { this._tuningDrag = null; });
+      tuningKnob.addEventListener('pointerup',     () => {
+        const tap = this._tuningDrag && !this._tuningDrag.moved;
+        this._tuningDrag = null;
+        if (tap && this._app._mode === 'radio') this._app.toggleRadioPause();
+      });
       tuningKnob.addEventListener('pointercancel', () => { this._tuningDrag = null; });
       tuningKnob.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -2103,6 +2305,11 @@ class UI {
         this._setFrequency(Math.max(this._FM_MIN, Math.min(this._FM_MAX, this._currentFreq - Math.sign(e.deltaY) * step)));
       }, { passive: false });
       tuningKnob.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && this._app._mode === 'radio') {
+          e.preventDefault();
+          this._app.toggleRadioPause();
+          return;
+        }
         if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
           e.preventDefault();
           this._setFrequency(Math.min(this._FM_MAX, this._currentFreq + 0.1));
@@ -2628,6 +2835,23 @@ class UI {
     }
   }
 
+  setRadioControlState(isOn, isPaused = false) {
+    const pauseButton = document.getElementById('radio-pause-button');
+    const stopButton = document.getElementById('radio-stop-button');
+    const label = pauseButton?.querySelector('.radio-control-text');
+    if (pauseButton) {
+      pauseButton.disabled = !isOn && !isPaused;
+      pauseButton.setAttribute('aria-pressed', String(isOn));
+      pauseButton.setAttribute('aria-label', isOn ? 'Radyoyu duraklat' : 'Radyoyu devam ettir');
+      pauseButton.title = isOn ? 'Radyoyu duraklat' : 'Radyoyu devam ettir';
+    }
+    if (label) label.textContent = isOn ? 'PAUSE' : 'PLAY';
+    if (stopButton) {
+      stopButton.disabled = !isOn && !isPaused;
+      stopButton.setAttribute('aria-pressed', 'false');
+    }
+  }
+
   /* ─── Transport butonları ─── */
   _bindTransport() {
     const actions = [
@@ -2646,6 +2870,11 @@ class UI {
         action();
       });
     });
+  }
+
+  _bindRadioTransport() {
+    document.getElementById('radio-pause-button')?.addEventListener('click', () => this._app.toggleRadioPause());
+    document.getElementById('radio-stop-button')?.addEventListener('click', () => this._app.stopRadio());
   }
 
   /* ─── İlerleme çubuğu tıklama (seekTo) ─── */
@@ -2981,12 +3210,16 @@ class UI {
   setWallArtwork(artworkUrl) {
     const img = document.getElementById('wall-picture-right');
     if (!img) return;
+    const source = img.closest('picture')?.querySelector('source');
 
     if (artworkUrl) {
       // Yeni resmi yükle — yüklenene kadar mevcut görüntü kalsın
       const temp = new Image();
       temp.onload = () => {
+        // picture içindeki WebP source, img.src değerini geçersiz kılmasın.
+        source?.removeAttribute('srcset');
         img.src = artworkUrl;
+        img.referrerPolicy = 'no-referrer';
         img.classList.add('wall-artwork-active');
         img.alt = 'Albüm kapağı';
       };
@@ -3003,6 +3236,8 @@ class UI {
   _restoreRoomPicture(img) {
     img.classList.remove('wall-artwork-active');
     img.alt = '';
+    const source = img.closest('picture')?.querySelector('source');
+    if (source) source.setAttribute('srcset', '/arkaplan/background.webp');
     // setRandomRoomPictures() global fonksiyonunu tekrar çağır
     if (typeof setRandomRoomPictures === 'function') setRandomRoomPictures();
   }
@@ -3077,6 +3312,8 @@ class App {
     };
     this._radio.onStateChange = (isOn) => {
       this._ui.updateRadioStatus(isOn, this._radio.currentStation);
+      this._ui.setPlayState(false);
+      this._ui.setRadioControlState(isOn, !isOn && Boolean(this._radio.currentStation));
       if (isOn && this._radio.currentStation) {
         this._startNowPlaying(this._radio.currentStation);
         Heartbeat.start('radio', this._radioLabel(this._radio.currentStation));
@@ -3259,7 +3496,7 @@ class App {
     this._spectrum.setMode('radio');
     this._staticPlaying = false;
     await this._radio.selectStation(index);
-    this._ui.setPlayState(true);
+    this._ui.setPlayState(false);
   }
 
   setCustomCassettes(cassettes, activeId = null, autoPlay = false) {
@@ -3338,6 +3575,7 @@ class App {
       this._radio.stop();
       this._ui.updateRadioStatus(false);
       this._ui.setPlayState(false);
+      this._ui.setRadioControlState(false, false);
     }
     this._mode = 'tape';
     this._spectrum.setMode('tape');
@@ -3385,7 +3623,28 @@ class App {
     this._radio.stop();
     this._ui.updateRadioStatus(false);
     this._ui.setPlayState(false);
+    this._ui.setRadioControlState(false, false);
     this._staticPlaying = true;
+  }
+
+  toggleRadioPause() {
+    if (!this._powered || this._mode !== 'radio') return;
+    if (this._radio.isOn) {
+      this._radio.pause();
+      this._ui.setRadioControlState(false, true);
+    } else if (this._radioIdx >= 0) {
+      this._radio.resume();
+      this._ui.setRadioControlState(true, false);
+    }
+    this._ui.setPlayState(false);
+  }
+
+  stopRadio() {
+    if (!this._powered || this._mode !== 'radio') return;
+    this._radio.stop();
+    this._ui.updateRadioStatus(false);
+    this._ui.setRadioControlState(false, false);
+    this._ui.setPlayState(false);
   }
 
   togglePlay() {
@@ -3395,9 +3654,11 @@ class App {
       if (this._radio.isOn) {
         this._radio.pause();
         this._ui.setPlayState(false);
+        this._ui.setRadioControlState(false, true);
       } else if (this._radioIdx >= 0) {
         this._radio.resume();
-        this._ui.setPlayState(true);
+        this._ui.setPlayState(false);
+        this._ui.setRadioControlState(true, false);
       } else if (this._stations.length > 0) {
         this.switchToRadio(0);
       }
@@ -3417,6 +3678,7 @@ class App {
     if (this._mode === 'radio') {
       this._radio.stop();
       this._ui.updateRadioStatus(false);
+      this._ui.setRadioControlState(false, false);
     } else {
       this._tape.pause();
       this._tape.seek(0);
@@ -3441,6 +3703,7 @@ class App {
       this._spectrum?.setTapePlaying(false);
       this._spectrum?.setPowered(false);
       this._ui?.setPlayState(false);
+      this._ui?.setRadioControlState(false, false);
       this._powered = false;
       this._ui?.setPowerState(false);
       return;
@@ -3453,7 +3716,8 @@ class App {
     this._resumeAfterPowerOn = null;
     if (resume?.radio) {
       this._radio.resume();
-      this._ui.setPlayState(true);
+      this._ui.setPlayState(false);
+      this._ui.setRadioControlState(true, false);
     } else if (resume?.tape) {
       this._tape.play();
       this._spectrum.setTapePlaying(true);
@@ -3513,9 +3777,12 @@ function setRandomRoomPictures() {
   }
   const image = document.getElementById('wall-picture-right');
   if (!image || !images[0]) return;
+  const source = image.closest('picture')?.querySelector('source');
+  if (source) source.setAttribute('srcset', `/arkaplan/${images[0]}`);
   image.onerror = () => {
     if (image.src.endsWith('.webp')) {
       image.onerror = () => console.warn(`[Room decor] Tablo görseli yüklenemedi: /arkaplan/${images[0]}`);
+      if (source) source.setAttribute('srcset', `/arkaplan/${images[0].replace(/\.webp$/i, '.jpg')}`);
       image.src = `/arkaplan/${images[0].replace(/\.webp$/i, '.jpg')}`;
     }
   };
