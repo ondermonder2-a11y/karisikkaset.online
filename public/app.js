@@ -1107,7 +1107,6 @@ class UI {
     this._bindTapeCollection();
     this._bindCassetteShelf();
     this._bindMobileCassetteDrawer();
-    this._bindMobileRadioShelfDrawer();
     this._bindCassetteCreator();
     this._bindRadioCollection();
     this._bindRoomLightSwitch();
@@ -1788,9 +1787,7 @@ class UI {
     const targetCenterY = targetRect.top + targetRect.height / 2;
     const scale = Math.min(targetRect.width / Math.max(sourceRect.height, 1), targetRect.height / Math.max(sourceRect.width, 1));
     const commit = () => {
-      const wasPlaying = this._app._tapeIsPlaying === true;
       this._app.switchToTapeBySelector(tapeIndex);
-      if (!wasPlaying) this._app.togglePlay();
     };
 
     clone.style.left = `${sourceRect.left}px`;
@@ -1909,14 +1906,10 @@ class UI {
         play.textContent = '▶';
         card.append(spine, info, play);
         card.addEventListener('click', () => {
-          card.classList.add('is-inserting');
-          drawer.classList.add('has-selection');
-          // Mobil tarayıcılar gecikmeli auto_play çağrısını engelleyebilir.
-          // Seçim ve play aynı dokunma aktivasyonu içinde yapılır; klon yalnızca görseldir.
-          this._animateCassetteLoad(card, index, {
-            commitImmediately: true
-          });
-          window.setTimeout(close, 260);
+          // Mobilde fiziksel uçuş animasyonu yok; seçim dokunma aktivasyonu
+          // içinde doğrudan yapılır ve SoundCloud auto_play çağrısı korunur.
+          this._app.switchToTapeBySelector(index);
+          close();
         });
         list.appendChild(card);
       });
@@ -1935,81 +1928,6 @@ class UI {
     toggle.addEventListener('click', () => {
       drawer.classList.contains('is-open') ? close() : open();
     });
-    closeButton.addEventListener('click', close);
-    backdrop.addEventListener('click', close);
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && drawer.classList.contains('is-open')) {
-        close();
-        toggle.focus();
-      }
-    });
-  }
-
-  _bindMobileRadioShelfDrawer() {
-    const toggle = document.getElementById('mobile-radio-shelf-toggle');
-    const drawer = document.getElementById('mobile-radio-shelf-drawer');
-    const backdrop = document.getElementById('mobile-radio-shelf-backdrop');
-    const closeButton = document.getElementById('mobile-radio-shelf-close');
-    const list = document.getElementById('mobile-radio-shelf-list');
-    if (!toggle || !drawer || !backdrop || !closeButton || !list) return;
-
-    const close = () => {
-      drawer.classList.remove('is-open');
-      drawer.setAttribute('aria-hidden', 'true');
-      toggle.setAttribute('aria-expanded', 'false');
-      backdrop.hidden = true;
-      document.body.classList.remove('mobile-radio-shelf-open');
-    };
-    const render = () => {
-      list.replaceChildren();
-      const stations = Array.isArray(this._app._stations) ? this._app._stations : [];
-      if (!stations.length) {
-        const empty = document.createElement('p');
-        empty.className = 'mobile-radio-shelf-empty';
-        empty.textContent = 'Radyo rafı henüz yüklenmedi.';
-        list.appendChild(empty);
-        return;
-      }
-      stations.forEach((station, index) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'mobile-radio-shelf-card';
-        card.classList.toggle('is-active', this._app._radio?.currentIndex === index);
-        card.setAttribute('aria-label', `${station.name || 'İstasyon'} istasyonunu dinle`);
-        const dial = document.createElement('span');
-        dial.className = 'mobile-radio-shelf-card-dial';
-        dial.textContent = String(Number(station.frequency || 0).toFixed(1));
-        const info = document.createElement('span');
-        info.className = 'mobile-radio-shelf-card-info';
-        const name = document.createElement('span');
-        name.className = 'mobile-radio-shelf-card-name';
-        name.textContent = station.name || 'İsimsiz istasyon';
-        const genre = document.createElement('span');
-        genre.className = 'mobile-radio-shelf-card-genre';
-        genre.textContent = station.genre || 'Radyo istasyonu';
-        info.append(name, genre);
-        const play = document.createElement('span');
-        play.className = 'mobile-radio-shelf-card-play';
-        play.textContent = '▶';
-        play.setAttribute('aria-hidden', 'true');
-        card.append(dial, info, play);
-        card.addEventListener('click', () => {
-          this._app.switchToRadio(index);
-          close();
-        });
-        list.appendChild(card);
-      });
-    };
-    const open = () => {
-      render();
-      drawer.classList.add('is-open');
-      drawer.setAttribute('aria-hidden', 'false');
-      toggle.setAttribute('aria-expanded', 'true');
-      backdrop.hidden = false;
-      document.body.classList.add('mobile-radio-shelf-open');
-      closeButton.focus();
-    };
-    toggle.addEventListener('click', () => drawer.classList.contains('is-open') ? close() : open());
     closeButton.addEventListener('click', close);
     backdrop.addEventListener('click', close);
     document.addEventListener('keydown', event => {
