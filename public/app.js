@@ -269,6 +269,7 @@ class TapeController {
     this._pendingPlay = false;
     this._autoplayAttempt = 0;
     this._autoplayTimer = null;
+    this._initAttempts = 0;
 
     // Callback'ler (dışarıdan set edilir)
     this.onReady = null;
@@ -285,6 +286,7 @@ class TapeController {
     // SC.Widget API hazır mı?
     if (typeof SC === 'undefined' || !SC.Widget) {
       console.warn('[Tape] SoundCloud Widget API yüklenemedi.');
+      if (this._initAttempts++ < 20) window.setTimeout(() => this._init(), 250);
       return;
     }
     this._widget = SC.Widget(this._iframe);
