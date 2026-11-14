@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     networks:
       - default
+      - web_proxy
     # Port dışarıya açılmıyor — sadece app servisi erişir
     expose:
       - "5001"
