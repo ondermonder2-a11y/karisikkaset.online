@@ -454,3 +454,29 @@ bash deploy.sh
 ```
 
 > `deploy.sh` artık stash sonrasında yedeklediği tüm kasetleri ve radyo yapılandırmasını otomatik geri koyar. Sunucudaki `.env`, `data/` ve Compose volume'larını silmeyin.
+
+
+PowerShell’de proje klasöründe şu komutları çalıştırın:
+
+```powershell
+cd D:\Projeler\Node\karisikkaset
+git status --short
+git add -u
+git diff --cached --check
+git diff --cached --stat
+git commit -m "Değişikliği kısaca açıklayın"
+git push origin main
+```
+
+Yeni dosya eklediyseniz, `git add -u` sonrasında onu ayrıca belirtin:
+
+```powershell
+git add -- "dosya-yolu"
+```
+
+`git add -A` kullanmayın; şu an repoda göndermek istemeyebileceğiniz untracked dosyalar da var. Sunucuda sonra:
+
+```bash
+cd /home/onder/apps/karisikkaset-deploy
+bash deploy.sh
+```
