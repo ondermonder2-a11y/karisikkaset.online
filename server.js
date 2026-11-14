@@ -115,6 +115,7 @@ const stationHealth = new Map();
 let stationCheckRun = null;
 const STATION_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const STATION_CHECK_CONCURRENCY = 4;
+const DNS_LOOKUP_TIMEOUT_CODE = 'DNS_LOOKUP_TIMEOUT';
 const customCassetteRateLimits = new Map();
 const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
 const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
@@ -213,12 +214,22 @@ async function assertPublicHttpUrl(value) {
   ) {
     throw new Error('Yerel ağ adresleri test edilemez.');
   }
-  const addresses = isIP(hostname)
-    ? [{ address: hostname, family: isIP(hostname) }]
-    : await Promise.race([
-        lookup(hostname, { all: true, verbatim: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Alan adı çözümleme zaman aşımına uğradı.')), 5000)),
-      ]);
+  let addresses;
+  if (isIP(hostname)) {
+    addresses = [{ address: hostname, family: isIP(hostname) }];
+  } else {
+    addresses = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const error = new Error('Alan adı çözümleme zaman aşımına uğradı.');
+        error.code = DNS_LOOKUP_TIMEOUT_CODE;
+        reject(error);
+      }, 5000);
+      lookup(hostname, { all: true, verbatim: true }).then(
+        result => { clearTimeout(timeout); resolve(result); },
+        error => { clearTimeout(timeout); reject(error); }
+      );
+    });
+  }
   if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
     throw new Error('Bağlantı genel internet adresine çözülmüyor.');
   }
@@ -465,15 +476,25 @@ async function normalizeCustomRadioTracks(value) {
 async function probeStation(station) {
   const streamUrls = await resolveStreamUrl(station.streamUrl);
   let lastResult = null;
+  let inconclusiveResult = null;
   for (const streamUrl of streamUrls.slice(0, 5)) {
     try {
       lastResult = await probeExternalLink(streamUrl);
       if (lastResult.healthy) return lastResult;
     } catch (error) {
-      lastResult = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+      const failure = connectionFailure(error);
+      if (failure.healthy === null) inconclusiveResult = failure;
+      else lastResult = failure;
     }
   }
-  return lastResult || { healthy: false, message: 'Çalışan bir yayın adresi bulunamadı.' };
+  return inconclusiveResult || lastResult || { healthy: false, message: 'Çalışan bir yayın adresi bulunamadı.' };
+}
+
+function connectionFailure(error) {
+  if (error?.code === DNS_LOOKUP_TIMEOUT_CODE) {
+    return { healthy: null, message: 'Sunucuda DNS yanıtı zamanında alınamadı; bu sonuç yayının kapalı olduğunu doğrulamaz.' };
+  }
+  return { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
 }
 
 async function persistStationHealth() {
@@ -489,7 +510,7 @@ async function loadStationHealth() {
     throw new Error(warning || 'İstasyon durum dosyası geçersiz.');
   }
   for (const [url, result] of Object.entries(data)) {
-    if (typeof url === 'string' && result && typeof result.healthy === 'boolean') {
+    if (typeof url === 'string' && result && (typeof result.healthy === 'boolean' || result.healthy === null)) {
       stationHealth.set(url, result);
     }
   }
@@ -529,7 +550,7 @@ async function runStationHealthSweep() {
       try {
         result = await probeStation(station);
       } catch (error) {
-        result = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+        result = connectionFailure(error);
       }
       stationHealth.set(station.streamUrl, {
         healthy: result.healthy,
@@ -1144,7 +1165,7 @@ app.post('/api/admin/check-link', async (req, res) => {
     try {
       result = await probeExternalLink(url);
     } catch (error) {
-      result = { healthy: false, message: error.message || 'Bağlantı test edilemedi.' };
+      result = connectionFailure(error);
     }
     const station = stations.find(item => item.streamUrl === url);
     if (station) {

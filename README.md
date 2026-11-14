@@ -114,10 +114,16 @@ cd "D:\Projeler\Node\karisikkaset"
 docker compose up --build -d
 ```
 
-Docker Desktop önce açık ve **Engine çalışır durumda** olmalı. Uygulama açılınca [http://localhost:3005](http://localhost:3005) adresine git. Hata kayıtlarını görmek için:
+Docker Desktop önce açık ve **Engine çalışır durumda** olmalı. Uygulama açılınca [http://localhost:3005](http://localhost:3005) adresine git. SoundCloud scraper konteyneri de harici DNS sunucularıyla yapılandırılmıştır. Hata kayıtlarını görmek için:
 
 ```powershell
 docker compose logs -f app
+```
+
+Scraper bağlantı veya DNS hataları için:
+
+```powershell
+docker compose logs -f scraper
 ```
 
 `web_proxy` ağı bulunamadı hatası çıkarsa çıktıyı gönder; compose ayarına göre çözelim.

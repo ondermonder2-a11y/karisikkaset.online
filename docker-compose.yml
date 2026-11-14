@@ -9,6 +9,10 @@ services:
     restart: unless-stopped
     networks:
       - default
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     # Port dışarıya açılmıyor — sadece app servisi erişir
     expose:
       - "5001"

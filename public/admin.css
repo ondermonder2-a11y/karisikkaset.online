@@ -561,6 +561,8 @@ code { color: #f0d496; font-size: 0.88em; }
 .health.good::before { background: var(--green); box-shadow: 0 0 7px #57c16d80; }
 .health.bad  { color: #ff9a8d; }
 .health.bad::before  { background: var(--red); }
+.health.uncertain { color: var(--amber); }
+.health.uncertain::before { background: var(--amber); }
 .health.checking { color: var(--text-muted); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 

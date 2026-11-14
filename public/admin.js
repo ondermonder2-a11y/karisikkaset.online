@@ -223,12 +223,15 @@ function updateStats() {
 
   const healthy   = [...stationHealth.values()].filter(r => r.healthy === true).length;
   const unhealthy = [...stationHealth.values()].filter(r => r.healthy === false).length;
+  const indeterminate = [...stationHealth.values()].filter(r =>
+    (r.checkedAt || r.testedAt) && r.healthy === null
+  ).length;
   const statH = document.getElementById('stat-health');
-  if (stationHealth.size === 0) {
+  if (![...stationHealth.values()].some(r => r.checkedAt || r.testedAt)) {
     statH.textContent = 'Henüz test edilmedi';
   } else {
-    statH.textContent = `${healthy} ✓ / ${unhealthy} ✗`;
-    statH.style.color = unhealthy > 0 ? 'var(--red)' : 'var(--green)';
+    statH.textContent = `${healthy} ✓ / ${unhealthy} ✗${indeterminate ? ` / ${indeterminate} ?` : ''}`;
+    statH.style.color = unhealthy > 0 ? 'var(--red)' : indeterminate ? 'var(--amber)' : 'var(--green)';
   }
 }
 
@@ -336,13 +339,21 @@ document.addEventListener('visibilitychange', () => {
 const stationsList = document.getElementById('stations-list');
 
 function healthText(result) {
-  if (!result || typeof result.healthy !== 'boolean') return 'Henüz test edilmedi.';
-  const time = result.checkedAt ? fmt(result.checkedAt) : '';
+  if (!result) return 'Henüz test edilmedi.';
+  const checkedAt = result.checkedAt || result.testedAt;
+  if (typeof result.healthy !== 'boolean') {
+    if (!checkedAt) return 'Henüz test edilmedi.';
+    const time = fmt(checkedAt);
+    return `Durum belirsiz — ${result.message || 'Bağlantı test edilemedi.'}${time ? ` · ${time}` : ''}`;
+  }
+  const time = checkedAt ? fmt(checkedAt) : '';
   return `${result.healthy ? 'Çevrimiçi' : 'Çevrimdışı'} — ${result.message || ''}${time ? ` · ${time}` : ''}`;
 }
 
 function healthClass(result) {
-  if (!result || typeof result.healthy !== 'boolean') return '';
+  if (!result) return '';
+  if (result.healthy === null && (result.checkedAt || result.testedAt)) return 'uncertain';
+  if (typeof result.healthy !== 'boolean') return '';
   return result.healthy ? 'good' : 'bad';
 }
 
@@ -400,7 +411,7 @@ function renderStations() {
       try {
         const r = await api('/api/admin/check-link', { method:'POST', body: JSON.stringify({ url: st.streamUrl }) });
         health.textContent = healthText(r);
-        health.className = `health ${r.healthy ? 'good' : 'bad'}`;
+        health.className = `health ${healthClass(r)}`;
         stationHealth.set(st.streamUrl, r);
         updateStats();
       } catch (err) {
@@ -477,8 +488,9 @@ async function refreshStationHealth() {
       clearTimeout(healthPollTimer);
       healthPollTimer = setTimeout(refreshStationHealth, 2000);
     } else {
-      const checked = result.stations.filter(s => typeof s.healthy === 'boolean').length;
-      prog.innerHTML = `<span>${checked}/${result.total} istasyon kontrol edildi. Otomatik kontrol 15 dk'da bir yapılır.</span>`;
+      const checkedStations = result.stations.filter(s => s.checkedAt);
+      const indeterminate = checkedStations.filter(s => s.healthy === null).length;
+      prog.innerHTML = `<span>${checkedStations.length}/${result.total} istasyon kontrol edildi.${indeterminate ? ` ${indeterminate} sonuç belirsiz.` : ''} Otomatik kontrol 15 dk'da bir yapılır.</span>`;
       chkBtn.disabled = false;
       clearTimeout(healthPollTimer);
       healthPollTimer = null;
