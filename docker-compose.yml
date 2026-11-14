@@ -8,7 +8,6 @@ services:
     container_name: karisik-scraper
     restart: unless-stopped
     networks:
-      - default
       - web_proxy
     # Port dışarıya açılmıyor — sadece app servisi erişir
     expose:
