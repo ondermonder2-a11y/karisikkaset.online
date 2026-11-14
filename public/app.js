@@ -269,6 +269,7 @@ class TapeController {
     this._pendingPlay = false;
     this._autoplayAttempt = 0;
     this._autoplayTimer = null;
+    this._playRetryTimers = [];
     this._initAttempts = 0;
 
     // Callback'ler (dışarıdan set edilir)
@@ -305,6 +306,7 @@ class TapeController {
       this._applyVolume('play');
       clearTimeout(this._autoplayTimer);
       this._autoplayTimer = null;
+      this._clearPlayRetries();
       this.onPlay?.();
     });
     this._widget.bind(SC.Widget.Events.PAUSE, () => {
@@ -351,6 +353,7 @@ class TapeController {
     this._isPlaying = false;
     const autoplayAttempt = ++this._autoplayAttempt;
     clearTimeout(this._autoplayTimer);
+    this._clearPlayRetries();
     this._widget.load(scUrl, {
       auto_play: autoPlay,
       hide_related: true,
@@ -369,9 +372,22 @@ class TapeController {
           this._currentDuration = ms / 1000;
           this.onProgress?.({ position: this._currentPosition, duration: this._currentDuration });
         });
+        if (autoPlay && autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
+          this._widget.play();
+        }
       }
     });
     if (autoPlay) {
+      // SoundCloud'un auto_play seçeneği mobilde bazen load tamamlandıktan
+      // sonra sessizce düşebiliyor. Stop/Play'e basılmış gibi birkaç güvenli
+      // ve token kontrollü play denemesi yaparak bunu telafi ediyoruz.
+      [120, 450, 1000].forEach(delay => {
+        const timer = window.setTimeout(() => {
+          if (autoplayAttempt !== this._autoplayAttempt || this._isPlaying) return;
+          this._widget?.play();
+        }, delay);
+        this._playRetryTimers.push(timer);
+      });
       this._autoplayTimer = setTimeout(() => {
         if (autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
           this.onAutoplayBlocked?.();
@@ -380,14 +396,23 @@ class TapeController {
     }
   }
 
+  _clearPlayRetries() {
+    this._playRetryTimers.forEach(timer => clearTimeout(timer));
+    this._playRetryTimers = [];
+  }
+
   play()  {
     clearTimeout(this._autoplayTimer);
     this._autoplayTimer = null;
+    this._clearPlayRetries();
     this._widget?.play();
     // play() başladıktan sonra sesi uygula
     setTimeout(() => this._applyVolume('play-btn'), 200);
   }
-  pause() { this._widget?.pause(); }
+  pause() {
+    this._clearPlayRetries();
+    this._widget?.pause();
+  }
 
   /** Pozisyona git (saniye) */
   seek(seconds) {
