@@ -42,6 +42,67 @@ import { isIP } from 'net';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+
+const rateLimitBuckets = new Map();
+const MAX_RATE_LIMIT_BUCKETS = 20_000;
+let lastRateLimitCleanupAt = 0;
+
+function pruneRateLimitBuckets(now) {
+  if (now - lastRateLimitCleanupAt < 60_000) return;
+  for (const [key, bucket] of rateLimitBuckets) {
+    if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
+  }
+  lastRateLimitCleanupAt = now;
+}
+
+function createRateLimiter(name, windowMs, max) {
+  return (req, res, next) => {
+    const now = Date.now();
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const key = `${name}:${ip}`;
+    let bucket = rateLimitBuckets.get(key);
+
+    if (!bucket || bucket.resetAt <= now) {
+      if (bucket) rateLimitBuckets.delete(key);
+      pruneRateLimitBuckets(now);
+      if (rateLimitBuckets.size >= MAX_RATE_LIMIT_BUCKETS) {
+        rateLimitBuckets.delete(rateLimitBuckets.keys().next().value);
+      }
+      bucket = { count: 0, resetAt: now + windowMs };
+    }
+
+    bucket.count++;
+    rateLimitBuckets.delete(key);
+    rateLimitBuckets.set(key, bucket);
+    res.setHeader('RateLimit-Limit', String(max));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, max - bucket.count)));
+    res.setHeader('RateLimit-Reset', String(Math.ceil((bucket.resetAt - now) / 1000)));
+    if (bucket.count > max) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
+      return res.status(429).json({ error: 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.' });
+    }
+    next();
+  };
+}
+
+const apiRateLimit = createRateLimiter('api', 15 * 60 * 1000, 15_000);
+const heartbeatRateLimit = createRateLimiter('heartbeat', 60 * 1000, 600);
+const streamRateLimit = createRateLimiter('stream', 10 * 60 * 1000, 300);
+const resolveRateLimit = createRateLimiter('resolve', 10 * 60 * 1000, 300);
+const nowPlayingRateLimit = createRateLimiter('now-playing', 10 * 60 * 1000, 900);
+const listenersRateLimit = createRateLimiter('listeners', 60 * 1000, 120);
+const radioSearchRateLimit = createRateLimiter('radio-search', 15 * 60 * 1000, 60);
+const scraperStatusRateLimit = createRateLimiter('scraper-status', 60 * 1000, 10);
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  next();
+});
+app.use('/api', apiRateLimit);
 // Gövde ayrıştırıcı tüm rotalardan önce kayıtlı olmalı (heartbeat dahil).
 app.use(express.json({ limit: '512kb' }));
 const PORT = process.env.PORT || 3000;
@@ -821,6 +882,8 @@ function readIcyMetadata(url, redirectsLeft = 5) {
 const listeners = new Map(); // sessionId → { lastSeen, firstSeen, mode, label }
 const LISTENER_TTL_MS = 75_000;
 const LISTENER_HEARTBEAT_MS = 20_000;
+const MAX_LISTENERS = 5_000;
+const LISTENER_SESSION_ID_PATTERN = /^(?:[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}|kk-[a-z0-9]{1,16}-[a-z0-9]{1,8})$/i;
 
 function pruneListeners() {
   const now = Date.now();
@@ -829,31 +892,43 @@ function pruneListeners() {
   }
 }
 
-app.post('/api/heartbeat', (req, res) => {
+app.post('/api/heartbeat', heartbeatRateLimit, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  const id    = typeof req.body?.sessionId === 'string' ? req.body.sessionId.slice(0, 64) : null;
-  const mode  = typeof req.body?.mode      === 'string' ? req.body.mode.slice(0, 16)      : 'idle';
-  const label = typeof req.body?.label     === 'string' ? req.body.label.slice(0, 120)    : '';
-  if (!id) return res.status(400).json({ error: 'sessionId gerekli.' });
+  const id = typeof req.body?.sessionId === 'string' ? req.body.sessionId : '';
+  const mode = req.body?.mode;
+  const label = typeof req.body?.label === 'string' ? req.body.label.slice(0, 120) : '';
+  if (!LISTENER_SESSION_ID_PATTERN.test(id)) {
+    return res.status(400).json({ error: 'sessionId biçimi geçersiz.' });
+  }
+  if (mode !== 'radio' && mode !== 'tape') {
+    return res.status(400).json({ error: 'Dinleme modu geçersiz.' });
+  }
   const now = Date.now();
+  pruneListeners();
   const previous = listeners.get(id);
+  if (!previous && listeners.size >= MAX_LISTENERS) {
+    return res.status(503).json({ error: 'Dinleyici kapasitesi dolu. Daha sonra tekrar deneyin.' });
+  }
   listeners.set(id, {
     lastSeen: now,
     firstSeen: previous?.firstSeen || now,
     mode,
     label,
   });
-  res.json({ ok: true, listeners: listeners.size, intervalMs: LISTENER_HEARTBEAT_MS });
+  res.json({ ok: true, intervalMs: LISTENER_HEARTBEAT_MS });
 });
 
-app.delete('/api/heartbeat', (req, res) => {
-  const id = typeof req.body?.sessionId === 'string' ? req.body.sessionId.slice(0, 64) : null;
+app.delete('/api/heartbeat', heartbeatRateLimit, (req, res) => {
+  const id = typeof req.body?.sessionId === 'string' ? req.body.sessionId : '';
+  if (id && !LISTENER_SESSION_ID_PATTERN.test(id)) {
+    return res.status(400).json({ error: 'sessionId biçimi geçersiz.' });
+  }
   if (id) listeners.delete(id);
   pruneListeners();
   res.json({ ok: true });
 });
 
-app.get('/api/listeners', (req, res) => {
+app.get('/api/listeners', requireAdmin, requireSameOrigin, listenersRateLimit, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   pruneListeners();
   const now = Date.now();
@@ -948,12 +1023,14 @@ app.post('/api/admin/logout', requireSameOrigin, (req, res) => {
   res.json({ authenticated: false });
 });
 
+app.use('/api/admin', requireAdmin, requireSameOrigin);
+
 // ─────────────────────────────────────────────
 // GET /api/admin/search-radio?q=<name>&country=TR&limit=20
 // radio-browser.info API'sinden istasyon arar.
 // Admin oturumu gerektirir. Sonuçları stations.json formatına normalize eder.
 // ─────────────────────────────────────────────
-app.get('/api/admin/search-radio', async (req, res) => {
+app.get('/api/admin/search-radio', radioSearchRateLimit, async (req, res) => {
   const q       = typeof req.query.q       === 'string' ? req.query.q.trim()       : '';
   const country = typeof req.query.country === 'string' ? req.query.country.trim() : '';
   const tag     = typeof req.query.tag     === 'string' ? req.query.tag.trim()     : '';
@@ -1036,11 +1113,11 @@ app.get('/api/admin/search-radio', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// GET /api/admin/scraper-status  (oturum gerekmez — sadece port ping)
+// GET /api/admin/scraper-status (admin oturumu gerektirir)
 // Python sc_scraper.py'nin 5001 portunda çalışıp çalışmadığını kontrol eder.
 // Hassas veri dönmez, sadece {ok: true/false}.
 // ─────────────────────────────────────────────
-app.get('/api/admin/scraper-status', async (req, res) => {
+app.get('/api/admin/scraper-status', scraperStatusRateLimit, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const host = process.env.SCRAPER_HOST || '127.0.0.1';
   const port = parseInt(process.env.SCRAPER_PORT || '5001', 10);
@@ -1062,8 +1139,6 @@ app.get('/api/admin/scraper-status', async (req, res) => {
     res.json({ ok: false, host, port });
   }
 });
-
-app.use('/api/admin', requireAdmin, requireSameOrigin);
 
 app.get('/api/admin/site-code', async (req, res) => {
   try {
@@ -1617,7 +1692,7 @@ app.delete('/api/custom-cassettes/:id', requireSameOrigin, async (req, res) => {
 // Beyaz liste kontrolü: yalnızca stations.json'daki URL'ler.
 // Frontend bunu /api/stream çağrısından önce kullanır.
 // ─────────────────────────────────────────────
-app.get('/api/resolve', async (req, res) => {
+app.get('/api/resolve', resolveRateLimit, async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).json({ error: 'url parametresi gerekli.' });
 
@@ -1640,7 +1715,7 @@ app.get('/api/resolve', async (req, res) => {
 // GET /api/now-playing?url=<station stream URL>
 // ICY StreamTitle metadata, desteklenmiyorsa null döner.
 // ─────────────────────────────────────────────
-app.get('/api/now-playing', async (req, res) => {
+app.get('/api/now-playing', nowPlayingRateLimit, async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).json({ error: 'url parametresi gerekli.' });
 
@@ -1666,7 +1741,7 @@ app.get('/api/now-playing', async (req, res) => {
 // PLS/M3U ise önce playlist çözümlenir, ardından gerçek stream proxylenir.
 // Redirect'leri takip eder.
 // ─────────────────────────────────────────────
-app.get('/api/stream', async (req, res) => {
+app.get('/api/stream', streamRateLimit, async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).json({ error: 'url parametresi gerekli.' });
 
@@ -1730,7 +1805,6 @@ async function proxyStream(url, res, redirectsLeft = 5) {
   // Başarılı bağlantı: başlıkları ayarla ve veriyi aktar
   res.setHeader('Content-Type', upstream.headers['content-type'] || 'audio/mpeg');
   res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Access-Control-Allow-Origin', '*');
   // ICY metadata başlıklarını ilet (bazı player'lar kullanır)
   for (const [key, val] of Object.entries(upstream.headers)) {
     if (key.toLowerCase().startsWith('icy-')) {
