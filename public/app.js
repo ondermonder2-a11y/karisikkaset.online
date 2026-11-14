@@ -319,7 +319,12 @@ class TapeController {
     });
     this._widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
       this._currentPosition = (data.currentPosition || 0) / 1000; // ms → s
-      this._currentDuration = (data.loadedProgress > 0 && data.duration ? data.duration : this._currentDuration) / 1000;
+      // SoundCloud duration değeri milisaniyedir. Geçici olarak duration
+      // gelmeyen olaylarda mevcut saniye değerini tekrar 1000'e bölme.
+      const durationMs = Number(data.duration);
+      if (Number.isFinite(durationMs) && durationMs > 0) {
+        this._currentDuration = durationMs / 1000;
+      }
       this.onProgress?.({ position: this._currentPosition, duration: this._currentDuration });
     });
     // Hata olayı
@@ -378,6 +383,14 @@ class TapeController {
       }
     });
     if (autoPlay) {
+      // Mobil tarayıcılar callback içindeki play() çağrısını kullanıcı
+      // dokunuşundan koparabiliyor. İlk denemeyi load() ile aynı senkron
+      // aktivasyonda yapıyoruz; aşağıdaki denemeler yedek mekanizmadır.
+      try {
+        this._widget.play();
+      } catch (error) {
+        console.debug('[Tape] İlk mobil play denemesi bekleniyor:', error?.message || error);
+      }
       // SoundCloud'un auto_play seçeneği mobilde bazen load tamamlandıktan
       // sonra sessizce düşebiliyor. Stop/Play'e basılmış gibi birkaç güvenli
       // ve token kontrollü play denemesi yaparak bunu telafi ediyoruz.
@@ -416,7 +429,33 @@ class TapeController {
 
   /** Pozisyona git (saniye) */
   seek(seconds) {
-    this._widget?.seekTo(Math.floor(seconds * 1000));
+    if (!this._widget || !this._ready) return;
+    const applySeek = duration => {
+      if (Number.isFinite(duration) && duration > 0) this._currentDuration = duration;
+      this._widget.seekTo(Math.max(0, Math.floor(seconds * 1000)));
+      this.onProgress?.({ position: seconds, duration: this._currentDuration });
+    };
+    if (this._currentDuration > 0) {
+      applySeek(this._currentDuration);
+      return;
+    }
+    this._widget.getDuration(ms => applySeek(Number(ms) / 1000));
+  }
+
+  seekRatio(ratio) {
+    const safeRatio = Math.max(0, Math.min(1, Number(ratio) || 0));
+    if (!this._widget || !this._ready) return;
+    if (this._currentDuration > 0) {
+      this.seek(safeRatio * this._currentDuration);
+      return;
+    }
+    this._widget.getDuration(ms => {
+      const duration = Number(ms) / 1000;
+      if (duration > 0) {
+        this._currentDuration = duration;
+        this.seek(safeRatio * duration);
+      }
+    });
   }
 
   _applyVolume(stage) {
@@ -469,6 +508,16 @@ class TapeController {
    ═══════════════════════════════════════════════════════ */
 const SPECTRUM_BARS = 48;
 const SPECTRUM_STYLES = ['mirror', 'equalizer', 'wave', 'classic', 'led', 'mono', 'fire', 'vfd', 'vu', 'crt', 'matrix'];
+const SPEAKER_EFFECTS = [
+  ['cyan-purple', 'Ritim'],
+  ['vu-classic', 'VU Metre'],
+  ['dual-plasma', 'Plazma'],
+  ['scanner', 'Tarayıcı'],
+  ['matrix', 'Matris'],
+  ['rainbow', 'Gökkuşağı'],
+  ['amber', 'Tüp Işık'],
+  ['off', 'Kapalı']
+];
 
 class Spectrum {
   constructor(containerEl, audioEngine) {
@@ -492,6 +541,7 @@ class Spectrum {
     this._peakLevels = Array(SPECTRUM_BARS).fill(0);
     this._peakTimes = Array(SPECTRUM_BARS).fill(0);
     this._speakerLightMode = 'rhythm';
+    this._speakerEffect = 'cyan-purple';
     this._randomLight = 0.5;
     this._randomLightTarget = 0.5;
     this._beat = 0;
@@ -510,6 +560,7 @@ class Spectrum {
     this.setCrtColor(this._crtColor);
     this.setMatrixTheme(this._matrixTheme);
     this.setSpeakerLightMode(localStorage.getItem('kk_speaker_light_mode') || 'rhythm');
+    this.setSpeakerEffect(localStorage.getItem('kk_speaker_effect') || 'cyan-purple');
     this._tick();
   }
 
@@ -646,7 +697,22 @@ class Spectrum {
   }
 
   toggleSpeakerLightMode() {
-    this.setSpeakerLightMode(this._speakerLightMode === 'rhythm' ? 'random' : 'rhythm');
+    const current = SPEAKER_EFFECTS.findIndex(([mode]) => mode === this._speakerEffect);
+    this.setSpeakerEffect(SPEAKER_EFFECTS[(current + 1) % SPEAKER_EFFECTS.length][0]);
+  }
+
+  setSpeakerEffect(effect) {
+    const selected = SPEAKER_EFFECTS.find(([mode]) => mode === effect) || SPEAKER_EFFECTS[0];
+    this._speakerEffect = selected[0];
+    localStorage.setItem('kk_speaker_effect', selected[0]);
+    document.querySelectorAll('.speaker-grille').forEach(speaker => {
+      speaker.dataset.lightEffect = selected[0];
+    });
+    const button = document.getElementById('speaker-light-toggle');
+    if (button) {
+      button.textContent = `Efekt: ${selected[1]}`;
+      button.setAttribute('aria-label', `Hoparlör efekti: ${selected[1]}`);
+    }
   }
 
   _tick() {
@@ -729,6 +795,7 @@ class Spectrum {
     this._randomLight += (this._randomLightTarget - this._randomLight) * 0.08;
     const speakerLight = this._speakerLightMode === 'random' ? this._randomLight : beat;
     document.documentElement.style.setProperty('--speaker-light', speakerLight.toFixed(3));
+    document.documentElement.style.setProperty('--speaker-level', `${(speakerLight * 100).toFixed(1)}%`);
   }
 
   _updateWave(levels) {
@@ -1904,32 +1971,36 @@ class UI {
       tapes.forEach((tape, index) => {
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'mobile-shelf-card';
+        const themes = ['theme-classic-white', 'theme-red-ink', 'theme-blue-gold', 'theme-yellow-bold', 'theme-midnight-neon', 'theme-handwritten', 'theme-stripe-yellow', 'theme-mint-green', 'theme-cream-serif'];
+        card.className = `mobile-shelf-card jewel-case ${themes[index % themes.length]}`;
         card.dataset.tapeIndex = String(index);
         card.setAttribute('aria-label', `${tape.label || 'Kaset'} kasetini çal`);
         card.classList.toggle('is-active', this._app._tapeIdx === index);
 
-        const spine = document.createElement('span');
-        spine.className = 'mobile-shelf-card-spine';
         const color = /^#[0-9a-f]{6}$/i.test(tape.color || '') ? tape.color : '#8a6040';
-        spine.style.background = color;
-        spine.textContent = String(index + 1).padStart(2, '0');
-
-        const info = document.createElement('span');
-        info.className = 'mobile-shelf-card-info';
-        const label = document.createElement('span');
-        label.className = 'mobile-shelf-card-label';
-        label.textContent = tape.label || 'İsimsiz kaset';
-        const category = document.createElement('span');
-        category.className = 'mobile-shelf-card-category';
-        category.textContent = `${tape.category || 'Diğer'} · ${tape.tracks?.length || 0} parça`;
-        info.append(label, category);
-
-        const play = document.createElement('span');
-        play.className = 'mobile-shelf-card-play';
-        play.setAttribute('aria-hidden', 'true');
-        play.textContent = '▶';
-        card.append(spine, info, play);
+        const acrylic = document.createElement('span');
+        acrylic.className = 'acrylic-shell';
+        const jcard = document.createElement('span');
+        jcard.className = 'jcard-spine';
+        jcard.dataset.tapeColor = color;
+        const left = document.createElement('span');
+        left.className = 'spine-left';
+        left.innerHTML = `<span class="spine-cat">KK-${String(index + 1).padStart(3, '0')}</span><span>SIDE A/B</span>`;
+        const center = document.createElement('span');
+        center.className = 'spine-center';
+        const subtitle = document.createElement('span');
+        subtitle.className = 'spine-sub-title';
+        subtitle.textContent = tape.category || 'Karışık Kaset Özel';
+        const title = document.createElement('span');
+        title.className = 'spine-main-title';
+        title.textContent = tape.label || 'İsimsiz kaset';
+        center.append(subtitle, title);
+        const right = document.createElement('span');
+        right.className = 'spine-right';
+        right.innerHTML = `<span>STEREO</span><span>${tape.tracks?.length || 0} PARÇA</span>`;
+        jcard.append(left, center, right);
+        acrylic.appendChild(jcard);
+        card.appendChild(acrylic);
         card.addEventListener('click', () => {
           // Mobilde fiziksel uçuş animasyonu yok; seçim dokunma aktivasyonu
           // içinde doğrudan yapılır ve SoundCloud auto_play çağrısı korunur.
@@ -2735,19 +2806,23 @@ class UI {
   }
 
   updateTapeProgress(position, duration) {
-    this._setTapeCounter(position);
-    const percent = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+    const safePosition = Math.max(0, Number(position) || 0);
+    const safeDuration = Math.max(0, Number(duration) || 0);
+    this._setTapeCounter(safePosition);
+    const percent = safeDuration > 0 ? Math.max(0, Math.min(100, (safePosition / safeDuration) * 100)) : 0;
     const pixels = document.querySelectorAll('.progress-pixel');
-    const litPixels = Math.round((percent / 100) * pixels.length);
+    const litPixels = percent >= 100
+      ? pixels.length
+      : Math.min(pixels.length, Math.floor((percent / 100) * pixels.length));
     pixels.forEach((pixel, index) => pixel.classList.toggle('is-lit', index < litPixels));
 
     // Kalan süre
-    const remaining = duration > 0 ? Math.max(0, duration - position) : 0;
+    const remaining = safeDuration > 0 ? Math.max(0, safeDuration - safePosition) : 0;
     const remEl = document.getElementById('progress-remaining');
     if (remEl) remEl.textContent = `-${formatTime(remaining)}`;
 
     // İlerleme çubuğu
-    const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+    const pct = percent;
     const fill = document.getElementById('progress-fill');
     if (fill) fill.style.width = `${pct}%`;
     const bar = document.getElementById('progress-bar');
@@ -2828,6 +2903,7 @@ class UI {
       const rect = bar.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       this._app.seekTape(ratio);
+      e.preventDefault?.();
     };
     bar.addEventListener('click', seek);
     // Sürükleme desteği
@@ -3110,6 +3186,12 @@ class UI {
       fill.setAttribute('x','2'); fill.setAttribute('y','7');
       fill.setAttribute('width','18'); fill.setAttribute('height','113');
       fill.setAttribute('fill', tapeColor);
+      const labelPanel = document.createElementNS(ns, 'rect');
+      labelPanel.setAttribute('class', 'svg-jcard-panel');
+      labelPanel.setAttribute('x','3'); labelPanel.setAttribute('y','18');
+      labelPanel.setAttribute('width','16'); labelPanel.setAttribute('height','88');
+      labelPanel.setAttribute('rx','1');
+      labelPanel.setAttribute('fill','#f4f1ea'); labelPanel.setAttribute('fill-opacity','0.78');
       // Parlak üst şerit
       const shine = document.createElementNS(ns, 'rect');
       shine.setAttribute('x','2'); shine.setAttribute('y','1.5');
@@ -3130,7 +3212,7 @@ class UI {
       const shelfLabel = tape.label.length > 22 ? `${tape.label.slice(0, 21)}…` : tape.label;
       text.textContent = shelfLabel;
 
-      g.append(outer, fill, shine, text);
+      g.append(outer, fill, labelPanel, shine, text);
 
       svg.insertBefore(g, svg.querySelector('.shelf-front'));
       existingIds.add(tape.id);
@@ -3691,9 +3773,7 @@ class App {
 
   seekTape(ratio) {
     if (this._mode !== 'tape') return;
-    const dur = this._tape.getDuration();
-    if (dur <= 0) return;
-    this._tape.seek(ratio * dur);
+    this._tape.seekRatio(ratio);
   }
 }
 

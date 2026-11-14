@@ -3502,3 +3502,225 @@ body.cassette-robot-is-hidden .robot-restore-inline { display: inline-flex; }
 .physical-tape-flight-svg { overflow:visible; }
 .physical-tape-flight-card { display:grid; place-items:center; padding:6px; overflow:hidden; border:1px solid rgba(255,255,255,.65); border-radius:4px; color:rgba(255,255,255,.92); font:800 .52rem/1.1 'Courier New',monospace; writing-mode:vertical-rl; text-transform:uppercase; box-shadow:inset 3px 0 rgba(255,255,255,.18),inset -3px 0 rgba(0,0,0,.16); }
 @media (prefers-reduced-motion:reduce) { .mobile-shelf-card { animation:none !important; } .cassette-reference-door { transition:none; } .cassette-reference-door.is-opening { transform:none; } .physical-tape-flight { animation-duration:1ms !important; } }
+
+
+/* Progress bar: fare ve dokunmatik sürükleme */
+#progress-bar {
+  touch-action: none;
+  cursor: pointer;
+}
+
+
+/* ─── Mobil kaset rafı: raf.html referansındaki çam dolap / J-card görünümü ─── */
+@media (max-width: 767px) {
+  .mobile-shelf-drawer {
+    width: min(94vw, 420px);
+    padding: max(16px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    border-left: 0;
+    border: 0;
+    border-radius: 6px 0 0 6px;
+    background-color: #d3b88c;
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,.28), rgba(0,0,0,.06) 50%, rgba(0,0,0,.22)),
+      repeating-linear-gradient(92deg, rgba(111,76,38,.08) 0 2px, transparent 2px 9px),
+      linear-gradient(145deg, #ead8b8, #a68554);
+    box-shadow: -20px 0 50px rgba(0,0,0,.75), inset 0 2px 2px rgba(255,255,255,.65), inset -3px -3px 6px rgba(110,80,40,.45);
+  }
+  .mobile-shelf-drawer::before {
+    position: absolute;
+    z-index: 4;
+    inset: 10px;
+    border: 2px solid rgba(125,92,50,.45);
+    content: '';
+    pointer-events: none;
+  }
+  .mobile-shelf-heading,
+  .mobile-shelf-hint,
+  .mobile-shelf-list { position: relative; z-index: 5; }
+  .mobile-shelf-heading { border-bottom-color: rgba(83,56,29,.38); }
+  .mobile-shelf-heading .song-request-eyebrow { color: #5e4327; text-shadow: 0 1px rgba(255,255,255,.35); }
+  .mobile-shelf-heading h2 { color: #2a1d12; font-family: Georgia,serif; letter-spacing: .04em; }
+  .mobile-shelf-close { border-color: rgba(82,56,29,.55); background: linear-gradient(#d8bd8d,#8d673f); color: #2b1c10; box-shadow: inset 0 1px rgba(255,255,255,.5), 0 3px 6px rgba(0,0,0,.38); }
+  .mobile-shelf-hint { color: #4f3821; }
+  .mobile-shelf-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    overflow-y: auto;
+    background: #1d160f;
+    box-shadow: inset 0 10px 18px rgba(0,0,0,.9), inset 0 -8px 14px rgba(0,0,0,.85), inset 8px 0 14px rgba(0,0,0,.85), inset -8px 0 14px rgba(0,0,0,.85);
+    scrollbar-width: none;
+  }
+  .mobile-shelf-list::-webkit-scrollbar { display: none; }
+  .mobile-shelf-card.jewel-case {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 50px;
+    padding: 5px 7px 4px;
+    border: 0;
+    border-bottom: 5px solid #cbb084;
+    border-radius: 0;
+    background: linear-gradient(180deg,#140f0a 0%,#261c13 60%,#1a130c 100%);
+    box-shadow: 0 2px 0 #8a6c3e, inset 0 4px 8px rgba(0,0,0,.85);
+    color: #181818;
+    transform: none;
+    transition: background .2s ease, filter .2s ease;
+  }
+  .mobile-shelf-card.jewel-case:last-child { border-bottom: 0; }
+  .mobile-shelf-card.jewel-case:hover,
+  .mobile-shelf-card.jewel-case:active { background: linear-gradient(180deg,#21170d,#352315 60%,#1f150c); filter: brightness(1.08); }
+  .mobile-shelf-card.jewel-case.is-active { background: linear-gradient(180deg,#2b1b0c,#4b3118 60%,#291b0d); }
+  .mobile-shelf-card .acrylic-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 44px;
+    padding: 2px 3px;
+    overflow: hidden;
+    border: 0;
+    border-top: 2.5px solid rgba(255,255,255,.65);
+    border-bottom: 3px solid rgba(25,25,25,.85);
+    border-left: 5px solid rgba(235,235,235,.55);
+    border-right: 5px solid rgba(40,40,40,.75);
+    border-radius: 3px;
+    background: rgba(255,255,255,.14);
+    box-shadow: 0 4px 7px rgba(0,0,0,.85), inset 0 1px 1px rgba(255,255,255,.7), inset 0 -1px 2px rgba(0,0,0,.6);
+  }
+  .mobile-shelf-card .acrylic-shell::after {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    background: linear-gradient(105deg,rgba(255,255,255,.32) 0%,rgba(255,255,255,.08) 28%,transparent 29%,transparent 72%,rgba(255,255,255,.14) 85%,transparent 100%);
+    content: '';
+    pointer-events: none;
+  }
+  .mobile-shelf-card .jcard-spine {
+    position: relative;
+    display: grid;
+    grid-template-columns: 54px 1fr 48px;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 0 6px;
+    overflow: hidden;
+    border-radius: 1.5px;
+    background: var(--card-bg, #f4f1ea);
+    color: var(--card-fg, #181818);
+    box-shadow: inset 0 0 4px rgba(0,0,0,.25);
+  }
+  .mobile-shelf-card .jcard-spine::before { position:absolute; inset:0; opacity:.08; background:repeating-linear-gradient(115deg,transparent 0 3px,rgba(0,0,0,.22) 3px 4px); content:''; pointer-events:none; }
+  .mobile-shelf-card .spine-left,
+  .mobile-shelf-card .spine-right { display:flex; flex-direction:column; justify-content:center; height:75%; font:700 7px/1.05 'Courier New',monospace; opacity:.85; }
+  .mobile-shelf-card .spine-left { align-items:flex-start; border-right:1px solid rgba(128,128,128,.25); padding-right:4px; }
+  .mobile-shelf-card .spine-right { align-items:flex-end; border-left:1px solid rgba(128,128,128,.25); padding-left:4px; text-align:right; }
+  .mobile-shelf-card .spine-cat { font-weight:700; letter-spacing:-.3px; }
+  .mobile-shelf-card .spine-center { display:flex; min-width:0; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; overflow:hidden; text-align:center; }
+  .mobile-shelf-card .spine-main-title { max-width:100%; overflow:hidden; font:700 13.5px/1.05 Impact,'Arial Narrow',sans-serif; letter-spacing:.5px; text-overflow:ellipsis; white-space:nowrap; }
+  .mobile-shelf-card .spine-sub-title { max-width:100%; margin-top:1px; overflow:hidden; font:500 7.5px/1.05 'Courier New',monospace; letter-spacing:1px; text-overflow:ellipsis; text-transform:uppercase; white-space:nowrap; }
+  .mobile-shelf-card.theme-red-ink .jcard-spine { --card-bg:#f2efe9; --card-fg:#b82925; }
+  .mobile-shelf-card.theme-red-ink .spine-main-title { font-family:Impact,'Arial Black',sans-serif; }
+  .mobile-shelf-card.theme-blue-gold .jcard-spine { --card-bg:#26598f; --card-fg:#f3c677; }
+  .mobile-shelf-card.theme-blue-gold .spine-main-title { font-family:Georgia,serif; font-style:italic; }
+  .mobile-shelf-card.theme-yellow-bold .jcard-spine { --card-bg:#f2c324; --card-fg:#141414; }
+  .mobile-shelf-card.theme-yellow-bold .spine-main-title { font-family:'Courier New',monospace; letter-spacing:2px; }
+  .mobile-shelf-card.theme-midnight-neon .jcard-spine { --card-bg:#16224a; --card-fg:#e8eefc; }
+  .mobile-shelf-card.theme-handwritten .jcard-spine { --card-bg:#f8f6f0; --card-fg:#2b2b2b; }
+  .mobile-shelf-card.theme-handwritten .spine-main-title { font-family:'Comic Sans MS',cursive; }
+  .mobile-shelf-card.theme-stripe-yellow .jcard-spine { --card-bg:linear-gradient(90deg,#c92a2a 0 14%,#f7d038 14% 100%); --card-fg:#181818; }
+  .mobile-shelf-card.theme-mint-green .jcard-spine { --card-bg:#95c48b; --card-fg:#1e2e1b; }
+  .mobile-shelf-card.theme-cream-serif .jcard-spine { --card-bg:#efe6d5; --card-fg:#241c15; }
+  .mobile-shelf-card.is-active .acrylic-shell { border-color:#ffd54f; box-shadow:0 0 14px rgba(255,200,60,.9),0 6px 12px rgba(0,0,0,.9); }
+  .mobile-shelf-empty { padding: 18px 8px; color: #d9c39d; }
+}
+
+
+/* Masaüstü dik kasetler: mobil rafla eşleşen J-card iç etiket */
+.cassette-rack-svg .svg-jcard-panel {
+  stroke: rgba(68, 48, 31, .48);
+  stroke-width: .45;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.3));
+  transition: fill .2s ease, stroke .2s ease, filter .2s ease;
+}
+.cassette-rack-svg .svg-tape:hover .svg-jcard-panel {
+  stroke: rgba(255, 220, 136, .9);
+  filter: brightness(1.08) drop-shadow(0 2px 3px rgba(0,0,0,.45));
+}
+.cassette-rack-svg .svg-tape.active-tape .svg-jcard-panel {
+  fill: #fff4cf;
+  stroke: #f0b84d;
+  stroke-width: .85;
+  filter: drop-shadow(0 0 2px rgba(255,196,68,.8));
+}
+
+
+/* ─── Ekolayzer.html efektleri: mevcut hoparlör ölçülerini değiştirmeden ─── */
+.speaker-grille[data-light-effect="cyan-purple"] .grille-mesh::before {
+  background: radial-gradient(ellipse at 28% 58%, rgba(42,185,212,.95), transparent 56%), radial-gradient(ellipse at 76% 42%, rgba(168,62,198,.92), transparent 56%), radial-gradient(ellipse at 50% 82%, rgba(35,155,185,.65), transparent 60%);
+  filter: blur(8px);
+}
+.speaker-grille[data-light-effect="vu-classic"] .grille-mesh::before {
+  background: linear-gradient(0deg,#10b981 0%,#22c55e 45%,#eab308 72%,#f97316 86%,#ef4444 96%);
+  clip-path: inset(calc(100% - var(--speaker-level, 0%)) 0 0 0);
+  filter: blur(3px);
+  transition: clip-path .07s linear;
+}
+.speaker-grille[data-light-effect="vu-classic"] .grille-mesh::after {
+  inset: 15% 18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse,rgba(255,190,70,.6),transparent 70%);
+  filter: blur(15px);
+}
+.speaker-grille[data-light-effect="dual-plasma"] .grille-mesh::before {
+  background: radial-gradient(circle at 30% 35%,rgba(0,240,255,.95),transparent 45%), radial-gradient(circle at 70% 70%,rgba(255,0,153,.95),transparent 45%);
+  filter: blur(8px);
+  animation: kk-dual-plasma 3s ease-in-out infinite alternate;
+}
+.speaker-grille[data-light-effect="scanner"] .grille-mesh::before {
+  background: linear-gradient(180deg,transparent,rgba(239,68,68,.25) 38%,rgba(255,60,40,1) 50%,rgba(239,68,68,.25) 62%,transparent);
+  background-size: 100% 200%;
+  filter: blur(5px);
+  animation: kk-scanner 1.6s cubic-bezier(.45,.05,.55,.95) infinite alternate;
+}
+.speaker-grille[data-light-effect="matrix"] .grille-mesh::before {
+  background-image: repeating-linear-gradient(90deg,rgba(16,185,129,.15) 0 4px,rgba(52,211,153,.85) 6px,transparent 12px,rgba(6,182,212,.7) 18px,transparent 24px), linear-gradient(180deg,transparent,#10b981 50%,#a7f3d0 95%,transparent);
+  background-size: 100% 180%;
+  filter: blur(2.5px);
+  animation: kk-matrix 1.8s linear infinite;
+}
+.speaker-grille[data-light-effect="rainbow"] .grille-mesh::before {
+  background: linear-gradient(180deg,#ff0055,#ff9900,#ffee00,#00ff88,#00ccff,#9933ff,#ff0055);
+  background-size: 100% 240%;
+  filter: blur(7px);
+  animation: kk-rainbow 3s linear infinite;
+}
+.speaker-grille[data-light-effect="amber"] .grille-mesh::before {
+  background: radial-gradient(circle at 50% 25%,rgba(255,185,60,.95),transparent 45%), radial-gradient(circle at 50% 75%,rgba(245,130,32,.9),transparent 48%);
+  filter: blur(8px);
+  animation: kk-amber 2.4s ease-in-out infinite alternate;
+}
+.speaker-grille[data-light-effect="off"] .grille-mesh::before,
+.speaker-grille[data-light-effect="off"] .grille-mesh::after { opacity: 0; animation: none; }
+@keyframes kk-dual-plasma { 0% { transform:scale(1.03); } 50% { transform:scale(1.12) rotate(3deg); } 100% { transform:scale(1.03); } }
+@keyframes kk-scanner { 0% { background-position:0 -50%; } 100% { background-position:0 150%; } }
+@keyframes kk-matrix { 0% { background-position:0 100%; } 100% { background-position:0 -100%; } }
+@keyframes kk-rainbow { 0% { background-position:0 0; } 100% { background-position:0 100%; } }
+@keyframes kk-amber { 0% { opacity:.72; transform:scale(1.02); } 50% { opacity:.98; transform:scale(1.06); } 100% { opacity:.8; transform:scale(1.03); } }
+@media (prefers-reduced-motion: reduce) {
+  .speaker-grille[data-light-effect] .grille-mesh::before,
+  .speaker-grille[data-light-effect] .grille-mesh::after { animation: none; }
+}
+
+
+/* J-card krem panel üzerinde dikey kaset yazıları artık koyu ve okunaklı */
+.cassette-rack-svg .svg-tape-label {
+  fill: #241b12 !important;
+  font-weight: 900;
+  paint-order: stroke;
+  stroke: rgba(255, 248, 224, .42);
+  stroke-width: .18px;
+}
