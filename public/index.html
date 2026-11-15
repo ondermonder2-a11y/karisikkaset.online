@@ -12,7 +12,8 @@
   <link rel="preconnect" href="https://w.soundcloud.com" crossorigin />
   <link rel="dns-prefetch" href="//w.soundcloud.com" />
   <link rel="preload" href="/arkaplan/background.webp" as="image" type="image/webp" fetchpriority="high" />
-  <link rel="stylesheet" href="/style.css?v=seo-performance-20261114-7" />
+  <style id="style-boot-guard">body{visibility:hidden}html.styles-ready body{visibility:visible}</style>
+  <link rel="stylesheet" href="/style.css?v=retro-tv-20261115-3" onload="document.documentElement.classList.add('styles-ready')" onerror="document.documentElement.classList.add('styles-ready')" />
   <link rel="canonical" href="https://karisikkaset.online/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="tr_TR" />
@@ -706,10 +707,10 @@
               <button class="spectrum-mode-button" type="button" data-spectrum-style="mirror" aria-label="Yansımalı spektrum" aria-pressed="false" title="Yansımalı spektrum"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="equalizer" aria-label="Renkli ekolayzır" aria-pressed="false" title="Renkli ekolayzır"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="wave" aria-label="Neon dalga" aria-pressed="false" title="Neon dalga"></button>
-              <button class="spectrum-mode-button" type="button" data-spectrum-style="classic" aria-label="Klasik çubuk spektrum" aria-pressed="false" title="Klasik çubuk spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="waterfall" aria-label="WATERFALL spektrogram" aria-pressed="false" title="WATERFALL"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="led" aria-label="LED segment spektrum" aria-pressed="false" title="LED segment spektrum"></button>
-              <button class="spectrum-mode-button" type="button" data-spectrum-style="mono" aria-label="Tek renkli spektrum" aria-pressed="false" title="Tek renkli spektrum"></button>
-              <button class="spectrum-mode-button" type="button" data-spectrum-style="fire" aria-label="Sıcak tonlu spektrum" aria-pressed="false" title="Sıcak tonlu spektrum"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="radial" aria-label="RADIAL dairesel spektrum" aria-pressed="false" title="RADIAL"></button>
+              <button class="spectrum-mode-button" type="button" data-spectrum-style="vectorscope" aria-label="VECTORSCOPE X-Y Lissajous" aria-pressed="false" title="VECTORSCOPE"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="vfd" aria-label="VFD spektrum" aria-pressed="false" title="VFD spektrum"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="vu" aria-label="Analog VU metre" aria-pressed="false" title="Analog VU metre"></button>
               <button class="spectrum-mode-button" type="button" data-spectrum-style="crt" aria-label="CRT osiloskop" aria-pressed="false" title="CRT osiloskop"></button>
@@ -743,6 +744,27 @@
                 <button type="button" data-matrix-theme="fire" aria-pressed="false">RED / ORANGE</button>
               </div>
             </div>
+            <div class="analyzer-mode-heading" data-mode-heading="waterfall">
+              <span class="vu-meter-status waterfall-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls extra-visualizer-controls" role="group" aria-label="WATERFALL teması">
+                <button type="button" data-extra-visualizer="waterfall" data-extra-theme="thermal" aria-pressed="true">THERMAL</button>
+                <button type="button" data-extra-visualizer="waterfall" data-extra-theme="p1-green" aria-pressed="false">P1 GREEN</button>
+              </div>
+            </div>
+            <div class="analyzer-mode-heading" data-mode-heading="radial">
+              <span class="vu-meter-status radial-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls extra-visualizer-controls" role="group" aria-label="RADIAL teması">
+                <button type="button" data-extra-visualizer="radial" data-extra-theme="sunset" aria-pressed="true">SUNSET</button>
+                <button type="button" data-extra-visualizer="radial" data-extra-theme="mint" aria-pressed="false">MINT</button>
+              </div>
+            </div>
+            <div class="analyzer-mode-heading" data-mode-heading="vectorscope">
+              <span class="vu-meter-status vectorscope-status" aria-hidden="true"></span>
+              <div class="analyzer-mode-controls extra-visualizer-controls" role="group" aria-label="VECTORSCOPE fosfor teması">
+                <button type="button" data-extra-visualizer="vectorscope" data-extra-theme="p7-blue" aria-pressed="true">P7 BLUE</button>
+                <button type="button" data-extra-visualizer="vectorscope" data-extra-theme="p4-white" aria-pressed="false">P4 WHITE</button>
+              </div>
+            </div>
             <div class="spectrum-header">
               <div class="spectrum-track-wrap" id="spectrum-track-wrap" aria-label="Şu an çalıyor">
                 <span class="spectrum-track">
@@ -770,6 +792,15 @@
               <span>MODE: DOT-PEAK HOLD</span>
               <span class="matrix-grid-label">MATRIX: 20x12 LED</span>
               <span>REFRESH: 60Hz</span>
+            </div>
+            <div class="analyzer-mode-footer" data-mode-footer="waterfall">
+              <span>MODE: SPECTROGRAM</span><span>SCROLL: DOWN</span><span>RANGE: 20Hz-16kHz</span>
+            </div>
+            <div class="analyzer-mode-footer" data-mode-footer="radial">
+              <span>MODE: POLAR 72</span><span>PEAK HOLD: ON</span><span>REFRESH: 60Hz</span>
+            </div>
+            <div class="analyzer-mode-footer" data-mode-footer="vectorscope">
+              <span>MODE: X-Y LISSAJOUS</span><span>PHASE: L/R</span><span>PERSIST: MED</span>
             </div>
             </div>
           </div>
@@ -883,28 +914,25 @@
             <div class="display tape-display" id="tape-display">
             <div class="display-header">
               <span class="display-title">
-                <svg class="icon-tape" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <svg class="icon-tape" id="tape-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
                   <path d="M7 15h10"/>
                 </svg>
-                Tape
+                <svg class="icon-tape hidden" id="tv-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="m7 7 5-5 5 5M7 12h10M8 17h.01M12 17h.01M16 17h.01"/>
+                </svg>
+                <span id="tape-display-label">TAPE</span>
               </span>
+              <div class="tape-mode-switch" role="group" aria-label="Oynatıcı modu">
+                <button type="button" class="tape-mode-button is-active" id="mode-tape" aria-pressed="true">TAPE</button>
+                <button type="button" class="tape-mode-button" id="mode-tv" aria-pressed="false">TV</button>
+              </div>
               <span class="display-status" id="tape-status">
                 <span class="status-dot" id="tape-dot"></span>
                 <span id="tape-status-text">Stop</span>
               </span>
             </div>
-            <div class="deck-brand">
-              <span class="deck-brand-light" aria-hidden="true"></span>
-              <div class="tape-counter-box" id="counter-digits" aria-label="Çalma süresi">
-                <div class="drum-window"><div class="drum-strip" id="drum-m1"></div><div class="drum-cylinder-overlay"></div></div>
-                <div class="drum-window"><div class="drum-strip" id="drum-m2"></div><div class="drum-cylinder-overlay"></div></div>
-                <span class="counter-colon" aria-hidden="true">:</span>
-                <div class="drum-window"><div class="drum-strip" id="drum-s1"></div><div class="drum-cylinder-overlay"></div></div>
-                <div class="drum-window"><div class="drum-strip" id="drum-s2"></div><div class="drum-cylinder-overlay"></div></div>
-              </div>
-              <span class="deck-brand-light" aria-hidden="true"></span>
-            </div>
+            <div class="deck-media-stage">
             <div class="deck-cassette-bay">
               <div class="cassette-reference-door">
                 <div class="cassette-reference-top-label">
@@ -1054,6 +1082,16 @@
                 </div>
               </div>
             </div>
+            <div class="retro-tv-bay" id="retro-tv-bay" aria-hidden="true">
+              <div class="retro-tv-screen-shell">
+                <video id="retro-tv-video" class="retro-tv-video" playsinline controls preload="metadata"></video>
+                <div class="retro-tv-scanlines" aria-hidden="true"></div>
+                <div class="retro-tv-glass" aria-hidden="true"></div>
+                <div class="retro-tv-no-signal" id="retro-tv-no-signal">KANAL SEÇİNİZ</div>
+                <div class="retro-tv-caption" id="retro-tv-caption">RETRO TV · STANDBY</div>
+              </div>
+            </div>
+            </div>
             <div class="progress-wrap">
               <div class="progress-bar" id="progress-bar" role="slider" tabindex="0" aria-label="Çalma ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div class="progress-pixels" id="progress-pixels" aria-hidden="true"></div>
@@ -1142,6 +1180,15 @@
                 <g class="key-inner"><polygon class="key-top" points="4,0 94,0 98,38 0,38" fill="url(#keyTopNormal)" stroke="#524f4a" stroke-width="0.8" /><rect x="33" y="7" width="32" height="3.5" rx="0.8" fill="#8c8880" /><rect class="key-lip" x="0" y="38" width="98" height="8" rx="1.5" fill="url(#keyFrontLip)" stroke="#3d3b37" stroke-width="0.8" /></g>
               </g>
             </svg>
+            <div class="tape-counter-dock" aria-label="Kaset sayacı">
+              <div class="tape-counter-box" id="counter-digits" aria-label="Çalma süresi">
+                <div class="drum-window"><div class="drum-strip" id="drum-m1"></div><div class="drum-cylinder-overlay"></div></div>
+                <div class="drum-window"><div class="drum-strip" id="drum-m2"></div><div class="drum-cylinder-overlay"></div></div>
+                <span class="counter-colon" aria-hidden="true">:</span>
+                <div class="drum-window"><div class="drum-strip" id="drum-s1"></div><div class="drum-cylinder-overlay"></div></div>
+                <div class="drum-window"><div class="drum-strip" id="drum-s2"></div><div class="drum-cylinder-overlay"></div></div>
+              </div>
+            </div>
             </div>
             
 
@@ -1151,7 +1198,7 @@
                 <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
                 </svg>
-                Kaset Çalar ve Parçalar
+                  <span id="tape-list-title">Kaset Çalar ve Parçalar</span>
               </h2>
               <span class="playlist-count" id="track-count">0 tracks</span>
               <div class="cassette-robot-launcher cassette-robot-launcher-inline">
@@ -1253,15 +1300,18 @@
   <iframe
     id="sc-iframe"
     src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/forss/flickermood&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false"
-    allow="autoplay"
+    allow="autoplay; encrypted-media"
     style="position:absolute;width:1px;height:1px;top:-9999px;left:-9999px;border:0;"
     title="SoundCloud Player"
   ></iframe>
 
   <!-- SoundCloud Widget API -->
   <script src="https://w.soundcloud.com/player/api.js"></script>
+  <!-- Retro TV HLS desteği; Safari native HLS fallback'i kullanır -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+  <script src="visualizers-extra.js?v=20261115-2" defer></script>
   <!-- Uygulama -->
   <!-- TRACKER_BODY_CODE -->
-  <script src="app.js?v=seo-performance-20261114-20" defer></script>
+  <script src="app.js?v=retro-tv-20261115-3" defer></script>
 </body>
 </html>

@@ -464,7 +464,7 @@ git status --short
 git add -u
 git diff --cached --check
 git diff --cached --stat
-git commit -m "SoundCloud widget’ının parçayı yükledikten sonra auto_play komutu"
+git commit -m "ekran load"
 git push origin main
 ```
 

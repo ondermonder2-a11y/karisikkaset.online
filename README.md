@@ -129,3 +129,89 @@ docker compose logs -f scraper
 ```
 
 `web_proxy` ağı bulunamadı hatası çıkarsa çıktıyı gönder; compose ayarına göre çözelim.
+
+
+
+Evet, temel olarak doğru komutlar:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+Ancak sadece frontend dosyalarını değiştirdiğiniz için doğru ve güvenli kullanım şu sırayla olsun:
+
+```bash
+cd /home/onder/apps/karisikkaset-deploy
+
+git fetch origin main
+git pull --ff-only origin main
+
+docker compose build --no-cache app
+docker compose up -d app
+docker compose ps
+```
+
+`--no-cache` kullanmak yeni `index.html`, `app.js` ve `style.css` dosyalarının kesinlikle imaja alınmasını sağlar. Normal kullanımda ise daha hızlı olan şu komut yeterlidir:
+
+```bash
+docker compose build app
+docker compose up -d app
+```
+
+İmajı yeniden oluşturup servisi tek komutta başlatmak için:
+
+```bash
+docker compose up -d --build app
+```
+
+### Önerilen kontrol
+
+Container’ın gerçekten yeni dosyalarla çalıştığını kontrol edin:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 app
+```
+
+Sitenin cevap verip vermediğini kontrol etmek için:
+
+```bash
+curl -I http://127.0.0.1:3005
+```
+
+### Scraper değişmediyse
+
+Sadece `public/` dosyaları değiştiği için scraper’ı yeniden build etmeye gerek yok:
+
+```bash
+docker compose build --no-cache app
+docker compose up -d app
+```
+
+### Tam sistem build’i gerektiğinde
+
+`server.js`, `Dockerfile`, `package.json`, `sc_scraper.py` veya scraper Dockerfile değiştiyse:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+docker compose ps
+```
+
+### Sizin durumunuz için en uygun komut
+
+```bash
+cd /home/onder/apps/karisikkaset-deploy
+git pull --ff-only origin main
+docker compose up -d --build app
+docker compose ps
+```
+
+Not: Yerel kaset ve radyo dosyalarınız `volumes` ile bağlandığı için container yeniden oluşturulsa bile şu klasörler korunur:
+
+```text
+config/tapes
+config/stations.json
+data
+```

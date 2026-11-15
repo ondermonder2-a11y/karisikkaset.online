@@ -247,6 +247,15 @@ class AudioEngine {
     });
   }
 
+  getVisualizerData() {
+    if (!this._analyser || !this._freqData || !this._channelAnalysers || !this._channelTimeData) return null;
+    this._analyser.getByteFrequencyData(this._freqData);
+    this._channelAnalysers.forEach((analyser, channel) => {
+      analyser.getByteTimeDomainData(this._channelTimeData[channel]);
+    });
+    return { freq: this._freqData, timeL: this._channelTimeData[0], timeR: this._channelTimeData[1] };
+  }
+
   get isPlaying() { return this._audio && !this._audio.paused; }
 }
 
@@ -269,6 +278,7 @@ class TapeController {
     this._pendingPlay = false;
     this._autoplayAttempt = 0;
     this._autoplayTimer = null;
+    this._playRetryTimers = [];
     this._initAttempts = 0;
 
     // Callback'ler (dışarıdan set edilir)
@@ -305,6 +315,7 @@ class TapeController {
       this._applyVolume('play');
       clearTimeout(this._autoplayTimer);
       this._autoplayTimer = null;
+      this._clearPlayRetries();
       this.onPlay?.();
     });
     this._widget.bind(SC.Widget.Events.PAUSE, () => {
@@ -356,6 +367,7 @@ class TapeController {
     this._isPlaying = false;
     const autoplayAttempt = ++this._autoplayAttempt;
     clearTimeout(this._autoplayTimer);
+    this._clearPlayRetries();
     this._widget.load(scUrl, {
       auto_play: autoPlay,
       hide_related: true,
@@ -380,6 +392,18 @@ class TapeController {
       }
     });
     if (autoPlay) {
+      try {
+        this._widget.play();
+      } catch (error) {
+        console.debug('[Tape] Mobil ilk play denemesi bekleniyor:', error?.message || error);
+      }
+      [120, 450, 1000].forEach(delay => {
+        const timer = window.setTimeout(() => {
+          if (autoplayAttempt !== this._autoplayAttempt || this._isPlaying) return;
+          this._widget?.play();
+        }, delay);
+        this._playRetryTimers.push(timer);
+      });
       this._autoplayTimer = setTimeout(() => {
         if (autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
           this.onAutoplayBlocked?.();
@@ -388,14 +412,23 @@ class TapeController {
     }
   }
 
+  _clearPlayRetries() {
+    this._playRetryTimers.forEach(timer => clearTimeout(timer));
+    this._playRetryTimers = [];
+  }
+
   play()  {
     clearTimeout(this._autoplayTimer);
     this._autoplayTimer = null;
+    this._clearPlayRetries();
     this._widget?.play();
     // play() başladıktan sonra sesi uygula
     setTimeout(() => this._applyVolume('play-btn'), 200);
   }
-  pause() { this._widget?.pause(); }
+  pause() {
+    this._clearPlayRetries();
+    this._widget?.pause();
+  }
 
   /** Pozisyona git (saniye) */
   seek(seconds) {
@@ -477,7 +510,8 @@ class TapeController {
           simülasyon kullanılır. Düşük bantlar daha yüksek tutulur.
    ═══════════════════════════════════════════════════════ */
 const SPECTRUM_BARS = 48;
-const SPECTRUM_STYLES = ['mirror', 'equalizer', 'wave', 'classic', 'led', 'mono', 'fire', 'vfd', 'vu', 'crt', 'matrix'];
+const SPECTRUM_STYLES = ['mirror', 'equalizer', 'wave', 'waterfall', 'led', 'radial', 'vectorscope', 'vfd', 'vu', 'crt', 'matrix'];
+const EXTRA_VISUALIZERS = ['waterfall', 'radial', 'vectorscope'];
 const SPEAKER_EFFECTS = [
   ['cyan-purple', 'Ritim'],
   ['vu-classic', 'VU Metre'],
@@ -495,10 +529,23 @@ class Spectrum {
     this._audio = audioEngine;
     this._bars = [];
     this._animFrame = null;
-    this._mode = 'radio'; // 'radio' | 'tape'
+    this._mode = 'radio'; // 'radio' | 'tape' | 'tv'
     this._tapeIsPlaying = false;
+    this._tvIsPlaying = false;
     this._powered = true;
     this._visualization = 'mirror';
+    this._extraCanvasNeedsInit = true;
+    this._extraCanvasMode = null;
+    this._extraThemes = {
+      waterfall: localStorage.getItem('kk_waterfall_theme') === 'p1-green' ? 'p1-green' : 'thermal',
+      radial: localStorage.getItem('kk_radial_theme') === 'mint' ? 'mint' : 'sunset',
+      vectorscope: localStorage.getItem('kk_vectorscope_theme') === 'p4-white' ? 'p4-white' : 'p7-blue'
+    };
+    this._silentExtraData = {
+      freq: new Uint8Array(512),
+      timeL: new Uint8Array(256).fill(128),
+      timeR: new Uint8Array(256).fill(128)
+    };
     this._wavePhase = 0;
     this._wavePaths = [];
     this._renderPhase = 0;
@@ -523,12 +570,15 @@ class Spectrum {
 
     this._buildBars();
     const savedStyle = localStorage.getItem('kk_spectrum_style');
-    const visualization = SPECTRUM_STYLES.includes(savedStyle) ? savedStyle : 'mirror';
+    const legacyStyleMap = { classic: 'waterfall', mono: 'radial', fire: 'vectorscope' };
+    const mappedSavedStyle = legacyStyleMap[savedStyle] || savedStyle;
+    const visualization = SPECTRUM_STYLES.includes(mappedSavedStyle) ? mappedSavedStyle : 'mirror';
     this.setVisualization(visualization);
     this.setVuTheme(this._vuTheme);
     this.setVfdBands(this._vfdBands);
     this.setCrtColor(this._crtColor);
     this.setMatrixTheme(this._matrixTheme);
+    EXTRA_VISUALIZERS.forEach(mode => this.setExtraTheme(mode, this._extraThemes[mode]));
     this.setSpeakerLightMode(localStorage.getItem('kk_speaker_light_mode') || 'rhythm');
     this.setSpeakerEffect(localStorage.getItem('kk_speaker_effect') || 'cyan-purple');
     this._tick();
@@ -573,14 +623,16 @@ class Spectrum {
 
   setMode(mode) { this._mode = mode; }
   setTapePlaying(v) { this._tapeIsPlaying = v; }
+  setTvPlaying(v) { this._tvIsPlaying = Boolean(v); }
   setPowered(powered) { this._powered = powered; }
 
   setVisualization(style) {
     if (!SPECTRUM_STYLES.includes(style)) return;
+    if (this._visualization !== style) this._extraCanvasNeedsInit = true;
     this._visualization = style;
     this._container.dataset.visualization = style;
     this._wrap?.classList.toggle('is-vu-mode', style === 'vu');
-    const isModuleMode = ['vfd', 'vu', 'crt', 'matrix'].includes(style);
+    const isModuleMode = ['vfd', 'vu', 'crt', 'matrix', ...EXTRA_VISUALIZERS].includes(style);
     this._wrap?.classList.toggle('is-module-mode', isModuleMode);
     if (this._wrap) this._wrap.dataset.visualization = style;
     localStorage.setItem('kk_spectrum_style', style);
@@ -652,6 +704,19 @@ class Spectrum {
     });
   }
 
+  setExtraTheme(mode, theme) {
+    const visualizer = window.EXTRA_VIZ?.[mode];
+    if (!EXTRA_VISUALIZERS.includes(mode) || !visualizer) return;
+    const themeIndex = visualizer.themes.findIndex(label => label.toLowerCase().replace(/\s+/g, '-') === theme);
+    if (themeIndex < 0) return;
+    this._extraThemes[mode] = theme;
+    localStorage.setItem(`kk_${mode}_theme`, theme);
+    if (this._visualization === mode) this._extraCanvasNeedsInit = true;
+    document.querySelectorAll(`[data-extra-visualizer="${mode}"]`).forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.extraTheme === theme));
+    });
+  }
+
   setSpeakerLightMode(mode) {
     if (mode !== 'rhythm' && mode !== 'random') return;
     this._speakerLightMode = mode;
@@ -703,21 +768,17 @@ class Spectrum {
       // Gerçek zamanlı analiz (radyo stream'in Web Audio AnalyserNode'u)
       levels = this._audio.getLevels(SPECTRUM_BARS);
     } else {
-      // ── SIMÜLASYON (kaset modu) ──────────────────────────────────
-      // SoundCloud iframe sesine tarayıcıdan doğrudan erişilemez,
-      // bu nedenle kaset modu için simüle edilmiş spektrum animasyonu kullanılır.
-      // Çalma durumuna göre hedef seviyeleri güncelle.
-      if (this._simTimer % 8 === 0 && this._tapeIsPlaying) {
+      // Kaset iframe'i ve TV kanalları çapraz kaynak olduğundan, çalma durumuna
+      // bağlı simülasyon kullanılır; böylece CORS kısıtları oynatmayı etkilemez.
+      const isSimulatedSourcePlaying = this._mode === 'tv' ? this._tvIsPlaying : this._tapeIsPlaying;
+      if (this._simTimer % 8 === 0 && isSimulatedSourcePlaying) {
         // Yeni rastgele hedefler: bas frekanslar (düşük indeks) daha yüksek
         for (let i = 0; i < SPECTRUM_BARS; i++) {
           const bassFactor = 1 - (i / SPECTRUM_BARS) * 0.65;
-          const rand = Math.random();
-          this._simTargets[i] = this._tapeIsPlaying
-            ? rand * 0.75 * bassFactor + 0.05
-            : 0;
+          this._simTargets[i] = Math.random() * 0.75 * bassFactor + 0.05;
         }
       }
-      if (!this._tapeIsPlaying) {
+      if (!isSimulatedSourcePlaying) {
         for (let i = 0; i < SPECTRUM_BARS; i++) this._simTargets[i] = 0;
       }
       // Yumuşak geçiş (lerp)
@@ -753,7 +814,7 @@ class Spectrum {
     });
 
     if (this._visualization === 'wave') this._updateWave(levels);
-    if (['vfd', 'vu', 'crt', 'matrix'].includes(this._visualization)) {
+    if (['vfd', 'vu', 'crt', 'matrix', ...EXTRA_VISUALIZERS].includes(this._visualization)) {
       this._renderCanvas(levels);
     }
 
@@ -792,14 +853,30 @@ class Spectrum {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     const pixelWidth = Math.round(rect.width * pixelRatio);
     const pixelHeight = Math.round(rect.height * pixelRatio);
-    if (this._canvas.width !== pixelWidth || this._canvas.height !== pixelHeight) {
+    const resized = this._canvas.width !== pixelWidth || this._canvas.height !== pixelHeight;
+    if (resized) {
       this._canvas.width = pixelWidth;
       this._canvas.height = pixelHeight;
+      this._extraCanvasNeedsInit = true;
     }
     const ctx = this._canvasContext;
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     const width = rect.width;
     const height = rect.height;
+    if (EXTRA_VISUALIZERS.includes(this._visualization)) {
+      const visualizer = window.EXTRA_VIZ?.[this._visualization];
+      if (!visualizer) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (this._extraCanvasNeedsInit || this._extraCanvasMode !== this._visualization) {
+        visualizer.init(ctx, pixelWidth, pixelHeight);
+        this._extraCanvasMode = this._visualization;
+        this._extraCanvasNeedsInit = false;
+      }
+      const data = this._getExtraVisualizerData();
+      const themeIndex = visualizer.themes.findIndex(label => label.toLowerCase().replace(/\s+/g, '-') === this._extraThemes[this._visualization]);
+      visualizer.draw(ctx, pixelWidth, pixelHeight, data, performance.now(), Math.max(0, themeIndex));
+      return;
+    }
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     this._renderPhase += 0.045;
     if (this._visualization === 'vfd') this._drawVfd(ctx, width, height, levels);
     if (this._visualization === 'vu') this._drawVu(ctx, width, height, levels);
@@ -807,6 +884,14 @@ class Spectrum {
       this._drawCrt(ctx, width, height, levels, this._mode === 'radio' ? this._audio.getWaveform() : null);
     }
     if (this._visualization === 'matrix') this._drawMatrix(ctx, width, height, levels);
+  }
+
+  _getExtraVisualizerData() {
+    if (this._mode === 'radio') return this._audio.getVisualizerData() || this._silentExtraData;
+    const sourcePlaying = this._mode === 'tv' ? this._tvIsPlaying : this._tapeIsPlaying;
+    return sourcePlaying && window.EXTRA_VIZ?.fakeData
+      ? window.EXTRA_VIZ.fakeData(this._simTimer)
+      : this._silentExtraData;
   }
 
   _drawVfd(ctx, width, height, levels) {
@@ -1196,6 +1281,10 @@ class UI {
     document.querySelector('.matrix-theme-controls')?.addEventListener('click', event => {
       const button = event.target.closest('[data-matrix-theme]');
       if (button) this._app._spectrum.setMatrixTheme(button.dataset.matrixTheme);
+    });
+    document.querySelector('.deck-spectrum-bay')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-extra-visualizer][data-extra-theme]');
+      if (button) this._app._spectrum.setExtraTheme(button.dataset.extraVisualizer, button.dataset.extraTheme);
     });
     document.getElementById('speaker-light-toggle')?.addEventListener('click', () => {
       this._app._spectrum.toggleSpeakerLightMode();
@@ -2371,6 +2460,7 @@ class UI {
     localStorage.setItem('kk_volume', String(v));
     this._app._audioEngine.setVolume(v);
     this._app._tape.setVolume(v);
+    window.retroTvController?.setVolume(v);
   }
 
   _setVolumeDisplay(v) {
@@ -2638,19 +2728,45 @@ class UI {
     }
     // Signal barları
     const bars = document.querySelectorAll('.sbar');
-    const renderSignal = () => {
-      const litCount = 1 + Math.floor(Math.random() * bars.length);
-      bars.forEach((bar, i) => bar.classList.toggle('lit', i < litCount));
-    };
+    const signalBars = document.getElementById('signal-bars');
+    signalBars?.classList.toggle('is-standby', !isOn);
     if (isOn && bars.length) {
       if (!this._signalTimer) {
-        renderSignal();
-        this._signalTimer = setInterval(renderSignal, 700);
+        const startedAt = performance.now();
+        let lastSampleAt = 0;
+        let lastBeatAt = 0;
+        let smoothedBass = 0;
+        let beatInterval = 520;
+        const renderSignal = now => {
+          if (now - lastSampleAt >= 90) {
+            const levels = this._app._audioEngine.getLevels(48);
+            const bass = levels.slice(0, 5).reduce((sum, level) => sum + level, 0) / 5;
+            const isBassOnset = bass > 0.08 && bass > smoothedBass + 0.035;
+            if (isBassOnset && now - lastBeatAt > 260) {
+              if (lastBeatAt > 0) {
+                const measuredInterval = now - lastBeatAt;
+                if (measuredInterval >= 280 && measuredInterval <= 1800) {
+                  beatInterval = beatInterval * 0.65 + measuredInterval * 0.35;
+                }
+              }
+              lastBeatAt = now;
+            }
+            smoothedBass = smoothedBass * 0.72 + bass * 0.28;
+            lastSampleAt = now;
+          }
+          const hasRecentBeat = lastBeatAt > 0 && now - lastBeatAt < 2000;
+          const period = hasRecentBeat ? beatInterval : 520;
+          const phase = hasRecentBeat ? (now - lastBeatAt) % period : (now - startedAt) % period;
+          const litCount = phase < Math.min(160, period * 0.32) ? 5 : 4;
+          bars.forEach((bar, i) => bar.classList.toggle('lit', i < litCount));
+          this._signalTimer = requestAnimationFrame(renderSignal);
+        };
+        this._signalTimer = requestAnimationFrame(renderSignal);
       }
     } else {
-      clearInterval(this._signalTimer);
+      cancelAnimationFrame(this._signalTimer);
       this._signalTimer = null;
-      bars.forEach(bar => bar.classList.remove('lit'));
+      bars.forEach((bar, i) => bar.classList.toggle('lit', i === 0));
     }
     // Aktif mod vurgusu
     document.getElementById('radio-display')?.classList.toggle('mode-active', isOn);
@@ -3466,6 +3582,9 @@ class App {
 
   async switchToRadio(index) {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.setMode(false);
+    }
     const station = this._stations[index];
     if (station?.cassetteId) {
       const tapeIndex = this._tapes.findIndex(tape => tape.id === station.cassetteId);
@@ -3566,6 +3685,9 @@ class App {
 
   _selectTape(tapeIdx, trackIdx, autoPlay) {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.setMode(false);
+    }
     if (this._mode === 'radio') {
       this._radio.stop();
       this._ui.updateRadioStatus(false);
@@ -3644,6 +3766,10 @@ class App {
 
   togglePlay() {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.handleTransport('play');
+      return;
+    }
     this._audioEngine.ensureContext();
     if (this._mode === 'radio') {
       if (this._radio.isOn) {
@@ -3670,6 +3796,10 @@ class App {
 
   stop() {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.handleTransport('stop');
+      return;
+    }
     if (this._mode === 'radio') {
       this._radio.stop();
       this._ui.updateRadioStatus(false);
@@ -3687,6 +3817,9 @@ class App {
 
   togglePower() {
     if (this._powered) {
+      if (window.retroTvController?.isActive) {
+        window.retroTvController.stop(false);
+      }
       this._resumeAfterPowerOn = {
         radio: this._mode === 'radio' && Boolean(this._radio?.isOn),
         tape: this._mode === 'tape' && this._tapeIsPlaying
@@ -3721,10 +3854,18 @@ class App {
 
   next() {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.handleTransport('next');
+      return;
+    }
     if (this._mode === 'radio') this._radio.next(); else this._nextTrack();
   }
   prev() {
     if (!this._powered) return;
+    if (window.retroTvController?.isActive) {
+      window.retroTvController.handleTransport('prev');
+      return;
+    }
     if (this._mode === 'radio') this._radio.prev(); else this._prevTrack();
   }
 
@@ -3744,6 +3885,295 @@ class App {
   seekTape(ratio) {
     if (this._mode !== 'tape') return;
     this._tape.seekRatio(ratio);
+  }
+}
+
+class RetroTvController {
+  constructor(app) {
+    this.app = app;
+    this.channels = [];
+    this.activeIndex = -1;
+    this.isActive = false;
+    this.hls = null;
+    this._rendered = false;
+    this.video = document.getElementById('retro-tv-video');
+    this.display = document.getElementById('tape-display');
+    this.list = document.getElementById('track-list');
+    this.title = document.getElementById('tape-list-title');
+    this.count = document.getElementById('track-count');
+    this.noSignal = document.getElementById('retro-tv-no-signal');
+    this.caption = document.getElementById('retro-tv-caption');
+    this.statusDot = document.getElementById('tape-dot');
+    this.statusText = document.getElementById('tape-status-text');
+
+    document.getElementById('mode-tv')?.addEventListener('click', () => this.setMode(true));
+    document.getElementById('mode-tape')?.addEventListener('click', () => this.setMode(false));
+
+    if (this.video) {
+      this.video.addEventListener('play', () => {
+        if (!this.isActive) return;
+        this.app._spectrum?.setTvPlaying(true);
+        this.noSignal?.classList.add('is-hidden');
+        if (this.statusText) this.statusText.textContent = 'TV LIVE';
+        this.statusDot?.classList.add('tape-play');
+        this.app._ui?.setPlayState(true);
+      });
+
+      this.video.addEventListener('pause', () => {
+        if (!this.isActive) return;
+        this.app._spectrum?.setTvPlaying(false);
+        this.statusDot?.classList.remove('tape-play');
+        this.app._ui?.setPlayState(false);
+        if (this.statusText && this.statusText.textContent === 'TV LIVE') {
+          this.statusText.textContent = 'TV PAUSED';
+        }
+      });
+
+      this.video.addEventListener('error', () => {
+        if (!this.isActive) return;
+        this.app._spectrum?.setTvPlaying(false);
+        this._showSignalError('SİNYAL YOK');
+      });
+    }
+
+    const screenShell = document.querySelector('.retro-tv-screen-shell');
+    if (screenShell) {
+      screenShell.style.cursor = 'pointer';
+      screenShell.addEventListener('click', (e) => {
+        if (!this.isActive) return;
+        if (e.target.tagName === 'VIDEO' && e.target.hasAttribute('controls') && e.offsetY > e.target.clientHeight - 40) {
+          return;
+        }
+        if (this.video?.paused) {
+          this._playVideo();
+        } else {
+          this.video?.pause();
+        }
+      });
+    }
+  }
+
+  async init() {
+    try {
+      const response = await fetch('/tv_channels.json', { cache: 'no-store' });
+      const data = await response.json();
+      this.channels = Array.isArray(data) ? data.filter(channel => channel && channel.name) : [];
+      if (this.app?._ui?.volume != null) {
+        this.setVolume(this.app._ui.volume);
+      }
+    } catch (error) {
+      console.warn('[Retro TV] Kanal listesi okunamadı:', error);
+    }
+  }
+
+  setVolume(v) {
+    if (this.video) {
+      this.video.volume = Math.max(0, Math.min(1, v));
+    }
+  }
+
+  setMode(tvMode) {
+    if (!this.app._powered) return;
+    if (tvMode && !this.isActive) this.app.stop();
+    this.isActive = Boolean(tvMode);
+    const titleLabel = document.getElementById('tape-display-label');
+    if (titleLabel) titleLabel.textContent = this.isActive ? 'TV' : 'TAPE';
+    document.getElementById('tape-title-icon')?.classList.toggle('hidden', this.isActive);
+    document.getElementById('tv-title-icon')?.classList.toggle('hidden', !this.isActive);
+    this.display?.classList.toggle('is-tv-mode', this.isActive);
+    document.getElementById('retro-tv-bay')?.setAttribute('aria-hidden', String(!this.isActive));
+    document.getElementById('mode-tv')?.classList.toggle('is-active', this.isActive);
+    document.getElementById('mode-tv')?.setAttribute('aria-pressed', String(this.isActive));
+    document.getElementById('mode-tape')?.classList.toggle('is-active', !this.isActive);
+    document.getElementById('mode-tape')?.setAttribute('aria-pressed', String(!this.isActive));
+
+    if (this.isActive) {
+      this.app._spectrum?.setMode('tv');
+      this.app._spectrum?.setTvPlaying(Boolean(this.video && !this.video.paused));
+      if (!this._rendered) {
+        this._renderChannels();
+        this._rendered = true;
+      }
+      if (this.title) this.title.textContent = 'Retro TV Kanalları';
+      if (this.count) this.count.textContent = `${this.channels.length} kanal`;
+      if (this.statusText) this.statusText.textContent = 'TV STANDBY';
+      if (this.activeIndex < 0 && this.channels.length) {
+        this.selectChannel(0);
+      } else if (this.activeIndex >= 0) {
+        this._updateActiveChannel(this.activeIndex);
+      }
+    } else {
+      this.stop();
+      this.app._spectrum?.setTvPlaying(false);
+      this.app._spectrum?.setMode(this.app._mode);
+      if (this.title) this.title.textContent = 'Kaset Çalar ve Parçalar';
+      if (this.app._activeTape) {
+        this.app._ui.renderTrackList(this.app._activeTracks, this.app._trackIdx, this.app._errorTracks, this.app._tapeIdx);
+      }
+      if (this.statusText) this.statusText.textContent = 'Stop';
+      this.statusDot?.classList.remove('tape-play');
+      this.app._ui?.setPlayState(false);
+    }
+  }
+
+  _renderChannels() {
+    if (!this.list) return;
+    this.list.innerHTML = '';
+    if (!this.channels.length) {
+      this.list.innerHTML = '<li class="track-item" style="justify-content:center;color:#71717a;cursor:default">Kanal listesi bulunamadı</li>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    this.channels.forEach((channel, index) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(index === this.activeIndex));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `track-item${index === this.activeIndex ? ' active' : ''}`;
+      button.innerHTML = `<span class="track-num">${String(channel.number ?? index + 1).padStart(2, '0')}</span><span class="track-info"><span class="track-info-title">${this._esc(channel.name)}</span><span class="track-info-sub">${this._esc(channel.category || 'Retro yayın')} · ${this._esc(channel.status || 'HAZIR')}</span></span><span class="track-duration">TV</span>`;
+      button.addEventListener('click', () => this.selectChannel(index));
+      li.appendChild(button);
+      frag.appendChild(li);
+    });
+    this.list.appendChild(frag);
+  }
+
+  _updateActiveChannel(index) {
+    if (!this.list) return;
+    const items = this.list.querySelectorAll('li');
+    items.forEach((li, i) => {
+      const active = (i === index);
+      li.setAttribute('aria-selected', String(active));
+      const btn = li.querySelector('.track-item');
+      btn?.classList.toggle('active', active);
+      if (active) {
+        li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
+
+  selectChannel(index) {
+    if (!this.channels[index]) return;
+    this.activeIndex = index;
+    if (!this._rendered) {
+      this._renderChannels();
+      this._rendered = true;
+    } else {
+      this._updateActiveChannel(index);
+    }
+    const channel = this.channels[index];
+    if (this.caption) {
+      this.caption.textContent = `${String(channel.number ?? index + 1).padStart(2, '0')} · ${channel.name}`;
+    }
+    if (!channel.streamUrl) {
+      this._showSignalError('YAYIN YOK');
+      return;
+    }
+    this._loadStream(channel.streamUrl);
+  }
+
+  _loadStream(url) {
+    if (!this.video) return;
+    this.stop(true);
+    if (!url) return;
+
+    if (this.noSignal) {
+      this.noSignal.textContent = 'AYARLANIYOR...';
+      this.noSignal.classList.remove('is-hidden');
+    }
+    if (this.statusText) this.statusText.textContent = 'AYARLANIYOR...';
+
+    if (/\.m3u8(?:$|\?)/i.test(url) && window.Hls?.isSupported()) {
+      this.hls = new window.Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 20
+      });
+      this.hls.loadSource(url);
+      this.hls.attachMedia(this.video);
+      this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => this._playVideo());
+      this.hls.on(window.Hls.Events.ERROR, (_evt, data) => {
+        if (data?.fatal) {
+          console.warn('[Retro TV] HLS fatal error:', data.type, data.details);
+          this._showSignalError('SİNYAL YOK');
+        }
+      });
+      return;
+    }
+    this.video.src = url;
+    this.video.load();
+    this._playVideo();
+  }
+
+  _playVideo() {
+    if (!this.video) return;
+    const playPromise = this.video.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        this.noSignal?.classList.add('is-hidden');
+        if (this.statusText) this.statusText.textContent = 'TV LIVE';
+        this.statusDot?.classList.add('tape-play');
+        this.app._ui?.setPlayState(true);
+      }).catch((err) => {
+        console.debug('[Retro TV] Autoplay bekliyor:', err?.message || err);
+        this.app._spectrum?.setTvPlaying(false);
+        if (this.statusText) this.statusText.textContent = 'PLAY için dokun';
+        this.statusDot?.classList.remove('tape-play');
+        this.app._ui?.setPlayState(false);
+      });
+    }
+  }
+
+  _showSignalError(msg = 'SİNYAL YOK') {
+    this.app._spectrum?.setTvPlaying(false);
+    if (this.noSignal) {
+      this.noSignal.textContent = msg;
+      this.noSignal.classList.remove('is-hidden');
+    }
+    if (this.statusText) this.statusText.textContent = msg;
+    this.statusDot?.classList.remove('tape-play');
+    this.app._ui?.setPlayState(false);
+  }
+
+  stop(clearSource = true) {
+    this.hls?.destroy();
+    this.hls = null;
+    this.app._spectrum?.setTvPlaying(false);
+    this.video?.pause();
+    if (clearSource && this.video) {
+      this.video.removeAttribute('src');
+      this.video.load();
+    }
+    this.statusDot?.classList.remove('tape-play');
+    this.app._ui?.setPlayState(false);
+    if (this.statusText && this.isActive) {
+      this.statusText.textContent = 'TV STANDBY';
+    }
+  }
+
+  handleTransport(action) {
+    if (!this.isActive) return false;
+    if (!this.channels.length) return true;
+    if (action === 'prev') {
+      this.selectChannel((this.activeIndex - 1 + this.channels.length) % this.channels.length);
+    } else if (action === 'next') {
+      this.selectChannel((this.activeIndex + 1) % this.channels.length);
+    } else if (action === 'stop') {
+      this.stop(false);
+    } else if (action === 'play') {
+      if (this.video?.paused) {
+        this._playVideo();
+      } else {
+        this.video?.pause();
+      }
+    }
+    return true;
+  }
+
+  _esc(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
   }
 }
 
@@ -3866,7 +4296,10 @@ const Heartbeat = (() => {
 })();
 
 const app = new App();
-app.init().catch(err => {
+app.init().then(() => {
+  window.retroTvController = new RetroTvController(app);
+  return window.retroTvController.init();
+}).catch(err => {
   console.error('[App] Başlatılamadı:', err);
   showToast('Uygulama başlatılamadı: ' + err.message);
 });
