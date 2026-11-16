@@ -7,7 +7,7 @@
   <title>Yönetim · Karışık Kaset</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/music.png?v=20261114">
   <link rel="apple-touch-icon" href="/music.png?v=20261114">
-  <link rel="stylesheet" href="/admin.css">
+  <link rel="stylesheet" href="/admin.css?v=tv-admin-20261116-1">
 </head>
 <body>
 
@@ -97,6 +97,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M7 15h10"/></svg>
           Kasetler
         </button>
+        <button class="tab" type="button" data-tab="tv-channels">Retro TV Kanalları</button>
         <button class="tab" type="button" data-tab="requests">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Şarkı İstekleri
@@ -153,6 +154,27 @@
 
         <!-- Sürükle-bırak istasyon listesi -->
         <div class="card-list sortable" id="stations-list" aria-live="polite"></div>
+      </section>
+
+      <!-- ───────── RETRO TV KANALLARI ───────── -->
+      <section class="tab-panel hidden" id="tv-channels-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Retro TV Kanalları</h2>
+            <p class="muted">Kanalları sürükleyerek sıralayın; ad, kategori, durum ve yayın bağlantısını düzenleyin. Değişiklikler <code>tv_channels.json</code> dosyasına kaydedilir.</p>
+          </div>
+          <div class="station-actions">
+            <button class="button button-secondary btn-sm" id="add-tv-channel" type="button">+ Yeni kanal</button>
+            <button class="button btn-sm" id="save-tv-channels" type="button">TV kanallarını kaydet <kbd>Ctrl+S</kbd></button>
+          </div>
+        </div>
+        <div class="tv-channel-admin-toolbar">
+          <label class="tv-channel-admin-search">Kanal ara
+            <input id="tv-channel-admin-search" type="search" placeholder="Kanal adı, kategori veya yayın URL’si…" autocomplete="off">
+          </label>
+          <span class="muted" id="tv-channel-admin-count" aria-live="polite">— kanal</span>
+        </div>
+        <div class="card-list" id="tv-channels-list" aria-live="polite"></div>
       </section>
 
       <!-- Radyo Arama Modalı: sekme panellerinden bağımsız olarak workspace seviyesinde tutulur -->
@@ -377,6 +399,6 @@
     </div><!-- /workspace -->
   </div><!-- /shell -->
 
-  <script src="/admin.js" defer></script>
+  <script src="/admin.js?v=tv-admin-20261116-1" defer></script>
 </body>
 </html>

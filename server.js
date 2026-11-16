@@ -181,6 +181,7 @@ const customCassetteRateLimits = new Map();
 const CUSTOM_CASSETTE_DATA_PATH = join(__dirname, 'data', 'custom-cassettes.json');
 const CUSTOM_CASSETTE_SECRET_PATH = join(__dirname, 'data', 'custom-cassette-secret');
 const TAPE_ORDER_DATA_PATH = join(__dirname, 'data', 'tape-order.json');
+const TV_CHANNELS_PATH = join(__dirname, 'public', 'tv_channels.json');
 const TAPE_BACKUP_DIR = join(__dirname, 'data', 'backups', 'tapes');
 const TAPE_BACKUP_LIMIT = 30;
 const SITE_CODE_DATA_PATH = join(__dirname, 'data', 'site-code.json');
@@ -361,6 +362,39 @@ function validateStations(value) {
       throw new Error(`${index + 1}. istasyon yalnızca kullanıcı bilgisi içermeyen HTTP/HTTPS bağlantısı kullanabilir.`);
     }
     return { frequency, name, genre, streamUrl };
+  });
+}
+
+function validateTvChannels(value) {
+  if (!Array.isArray(value) || value.length > 500) throw new Error('TV kanal listesi geçersiz veya 500 kayıttan fazla.');
+  return value.map((channel, index) => {
+    if (!channel || typeof channel !== 'object' || Array.isArray(channel)) {
+      throw new Error(`${index + 1}. TV kanal kaydı geçersiz.`);
+    }
+    const number = Number(channel.number);
+    const name = typeof channel.name === 'string' ? channel.name.trim() : '';
+    const category = typeof channel.category === 'string' ? channel.category.trim() : '';
+    const status = typeof channel.status === 'string' ? channel.status.trim() : '';
+    const streamUrl = typeof channel.streamUrl === 'string' ? channel.streamUrl.trim() : '';
+    const type = typeof channel.type === 'string' ? channel.type.trim() : '';
+    if (!name || name.length > 120 || category.length > 80 || status.length > 80 || type.length > 32 || streamUrl.length > 2048) {
+      throw new Error(`${index + 1}. TV kanalının adı, kategorisi, durumu veya bağlantısı geçersiz.`);
+    }
+    if (streamUrl) {
+      let url;
+      try { url = new URL(streamUrl); } catch { throw new Error(`${index + 1}. TV kanal bağlantısı geçersiz.`); }
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+        throw new Error(`${index + 1}. TV kanal bağlantısı yalnızca kullanıcı bilgisi içermeyen HTTP/HTTPS olabilir.`);
+      }
+    }
+    return {
+      number: Number.isSafeInteger(number) && number > 0 ? number : index + 1,
+      name,
+      category,
+      status,
+      streamUrl,
+      type,
+    };
   });
 }
 
@@ -1096,6 +1130,34 @@ app.post('/api/admin/logout', requireSameOrigin, (req, res) => {
 });
 
 app.use('/api/admin', requireAdmin, requireSameOrigin);
+
+app.get('/api/admin/tv-channels', async (req, res) => {
+  try {
+    const { data: channels, warning } = await readJSON(TV_CHANNELS_PATH);
+    if (warning || !Array.isArray(channels)) throw new Error(warning || 'TV kanal dosyası bir dizi olmalı.');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ channels });
+  } catch (error) {
+    console.error('[admin] TV kanalları okunamadı:', error.message);
+    res.status(500).json({ error: `TV kanalları okunamadı: ${error.message}` });
+  }
+});
+
+app.put('/api/admin/tv-channels', async (req, res) => {
+  let channels;
+  try {
+    channels = validateTvChannels(req.body?.channels);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    await writeJSONAtomic(TV_CHANNELS_PATH, channels);
+    res.json({ channels });
+  } catch (error) {
+    console.error('[admin] TV kanalları kaydedilemedi:', error.message);
+    res.status(500).json({ error: `TV kanalları kaydedilemedi: ${error.message}` });
+  }
+});
 
 // ─────────────────────────────────────────────
 // GET /api/admin/search-radio?q=<name>&country=TR&limit=20

@@ -197,7 +197,16 @@ docker compose up -d app
 docker compose build --no-cache
 docker compose up -d
 docker compose ps
+
+
+
+docker compose build
+docker compose up -d
+docker compose ps
 ```
+
+docker compose up -d --build api web
+
 
 ### Sizin durumunuz için en uygun komut
 

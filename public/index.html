@@ -13,7 +13,7 @@
   <link rel="dns-prefetch" href="//w.soundcloud.com" />
   <link rel="preload" href="/arkaplan/background.webp" as="image" type="image/webp" fetchpriority="high" />
   <style id="style-boot-guard">body{visibility:hidden}html.styles-ready body{visibility:visible}</style>
-  <link rel="stylesheet" href="/style.css?v=retro-tv-20261115-3" onload="document.documentElement.classList.add('styles-ready')" onerror="document.documentElement.classList.add('styles-ready')" />
+  <link rel="stylesheet" href="/style.css?v=ui-clock-20261116-3" onload="document.documentElement.classList.add('styles-ready')" onerror="document.documentElement.classList.add('styles-ready')" />
   <link rel="canonical" href="https://karisikkaset.online/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="tr_TR" />
@@ -86,17 +86,158 @@
           <path d="M0 235Q500 265 1000 235 M0 305Q500 325 1000 305 M0 385Q500 398 1000 385 M0 475Q500 480 1000 475 M0 570H1000" />
         </g>
       </svg>
-      <figure class="wall-clock" aria-label="Klasik duvar saati">
-        <div class="wall-clock-face" aria-hidden="true">
-          <span class="wall-clock-number wall-clock-number-12">12</span>
-          <span class="wall-clock-number wall-clock-number-3">3</span>
-          <span class="wall-clock-number wall-clock-number-6">6</span>
-          <span class="wall-clock-number wall-clock-number-9">9</span>
-          <span class="wall-clock-hand wall-clock-hour"></span>
-          <span class="wall-clock-hand wall-clock-minute"></span>
-          <span class="wall-clock-hand wall-clock-second"></span>
-          <span class="wall-clock-pin"></span>
-        </div>
+      <figure class="wall-clock" aria-label="Metalik retro sarkaçlı duvar saati">
+        <svg class="wall-clock-svg" role="img" aria-label="Metalik retro sarkaçlı duvar saati" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Fırçalanmış Alüminyum / Metalik Çelik Gövde Gradyanı (Müzik seti gövdesi uyumu) -->
+        <linearGradient id="wall-clock-metallicBody" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#c9cdd2" />
+          <stop offset="18%" stop-color="#a2a6ad" />
+          <stop offset="45%" stop-color="#878b92" />
+          <stop offset="82%" stop-color="#696d73" />
+          <stop offset="100%" stop-color="#52565c" />
+        </linearGradient>
+
+        <!-- Parlak Krom / Gümüş Metalik Gradyan (Çerçeve, 12 ve İbreler) -->
+        <linearGradient id="wall-clock-chromeMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ffffff" />
+          <stop offset="28%" stop-color="#b6bac0" />
+          <stop offset="55%" stop-color="#f2f4f7" />
+          <stop offset="80%" stop-color="#6d7178" />
+          <stop offset="100%" stop-color="#cfd3d8" />
+        </linearGradient>
+
+        <!-- Dikey Cilalı Çelik / Krom Şerit Gradyanı (Sarkaç ve Dikey Çıtalar) -->
+        <linearGradient id="wall-clock-chromeVertical" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#686c73" />
+          <stop offset="35%" stop-color="#ffffff" />
+          <stop offset="68%" stop-color="#9ea2a9" />
+          <stop offset="100%" stop-color="#54575c" />
+        </linearGradient>
+
+        <!-- Beyaz / Açık Gümüş Kadran Gradyanı -->
+        <radialGradient id="wall-clock-whiteDial" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#ffffff" />
+          <stop offset="65%" stop-color="#f1f2f4" />
+          <stop offset="100%" stop-color="#d4d7dc" />
+        </radialGradient>
+
+        <!-- Duvara Düşen Ana Gölge -->
+        <filter id="wall-clock-wallShadow" x="-30%" y="-20%" width="170%" height="150%">
+          <feDropShadow dx="12" dy="18" stdDeviation="12" flood-color="#1c1b1a" flood-opacity="0.48" />
+        </filter>
+
+        <!-- Kadran Kabartma Gölgesi -->
+        <filter id="wall-clock-dialShadow" x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dx="6" dy="10" stdDeviation="7" flood-color="#14181c" flood-opacity="0.45" />
+        </filter>
+
+        <!-- Küçük Eleman Gölgesi (12, Sarkaç, Metal Şerit) -->
+        <filter id="wall-clock-pieceShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="3" dy="5" stdDeviation="3" flood-color="#141618" flood-opacity="0.4" />
+        </filter>
+      </defs>
+
+      <!-- SARKAÇ GRUBU (En arkada sallanır) -->
+      <g id="wall-clock-pendulum-group" filter="url(#wall-clock-pieceShadow)">
+        <!-- Sarkaç Çubuğu -->
+        <rect x="148.6" y="380" width="2.8" height="145" fill="url(#wall-clock-chromeVertical)" />
+        <!-- Sarkaç Ağırlığı (Silindirik Krom Uç) -->
+        <rect x="145.5" y="518" width="9" height="44" rx="3.5" fill="url(#wall-clock-chromeVertical)" stroke="#4d5056" stroke-width="0.5" />
+        <!-- Ağırlık Üst Bileziği -->
+        <rect x="146.5" y="516" width="7" height="3" rx="1" fill="#e4e7ec" />
+      </g>
+
+      <!-- ANA GÖVDE VE HALKA GRUBU -->
+      <g filter="url(#wall-clock-wallShadow)">
+        <!-- Arkadaki İnce Krom Çember -->
+        <circle cx="150" cy="245" r="118" fill="none" stroke="url(#wall-clock-chromeMetal)" stroke-width="4.5" />
+        <circle cx="150" cy="245" r="116" fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.7" />
+
+        <!-- Dikey Metalik Kapsül Gövde -->
+        <rect x="92" y="42" width="116" height="410" rx="58" fill="url(#wall-clock-metallicBody)" stroke="#4c5056" stroke-width="0.8" />
+        <!-- Kapsül Sol Kenar Işık Vurgusu (3B Metalik Kalınlık Hissi) -->
+        <rect x="92.8" y="42.8" width="114.4" height="408.4" rx="57.2" fill="none" stroke="#e2e5ea" stroke-width="1.3" opacity="0.65" />
+      </g>
+
+      <!-- ÜST DETAYLAR: GÜNÜN TARİHİ VE KAVİSLİ OYUK PENCERE -->
+      <g filter="url(#wall-clock-pieceShadow)">
+        <text id="wall-clock-date" x="150" y="94" fill="#30343a" stroke="#f1f3f5" stroke-width="0.55" paint-order="stroke" font-family="'Courier New', monospace" font-size="10" font-weight="bold" letter-spacing="0.2" text-anchor="middle">--.--.----</text>
+
+        <!-- Kavisli Yatay Oyuk Pencere -->
+        <path d="M108 134 Q150 120 192 134 L190 141 Q150 128 110 141 Z" fill="#23262a" />
+        <!-- Oyuk İçi Alt Kenar Metalik Işık Yansıması -->
+        <path d="M110 141 Q150 128 190 141" fill="none" stroke="#d5d8de" stroke-width="1.1" />
+      </g>
+
+      <!-- ALT KISIMDAKİ DİKEY KROM DEKORATİF ŞERİT -->
+      <g filter="url(#wall-clock-pieceShadow)">
+        <rect x="146.5" y="325" width="7" height="92" rx="1" fill="url(#wall-clock-chromeVertical)" stroke="#555960" stroke-width="0.4" />
+      </g>
+
+      <!-- ORTA BEYAZ DİSK KADRAN -->
+      <g filter="url(#wall-clock-dialShadow)">
+        <!-- İnce Krom Kadran Çerçevesi -->
+        <circle cx="150" cy="245" r="87" fill="url(#wall-clock-chromeMetal)" stroke="#585c63" stroke-width="0.6" />
+        <circle cx="150" cy="245" r="84" fill="url(#wall-clock-whiteDial)" />
+      </g>
+
+      <!-- KADRAN İÇİ RAKAMLAR, İNDEKSLER VE YAZILAR -->
+      <g id="wall-clock-dial-markings">
+        <!-- Uzun İnce Koyu Çelik Saat Çizgileri (1, 2, 4, 5, 7, 8, 10, 11) -->
+        <g stroke="#22252a" stroke-width="1.6" stroke-linecap="round">
+          <!-- 1 -->
+          <line x1="184" y1="186" x2="174" y2="203" />
+          <!-- 2 -->
+          <line x1="209" y1="211" x2="192" y2="221" />
+          <!-- 4 -->
+          <line x1="209" y1="279" x2="192" y2="269" />
+          <!-- 5 -->
+          <line x1="184" y1="304" x2="174" y2="287" />
+          <!-- 7 -->
+          <line x1="116" y1="304" x2="126" y2="287" />
+          <!-- 8 -->
+          <line x1="91" y1="279" x2="108" y2="269" />
+          <!-- 10 -->
+          <line x1="91" y1="211" x2="108" y2="221" />
+          <!-- 11 -->
+          <line x1="116" y1="186" x2="126" y2="203" />
+        </g>
+
+        <!-- Uzun Dar İnce Siyah/Antrasit Rakamlar (3, 6, 9) -->
+        <g fill="#1d2024" font-family="'Impact', 'Arial Narrow', sans-serif" font-size="23" text-anchor="middle">
+          <text x="219" y="253" transform="scale(0.82, 1.15)" style="transform-origin: 219px 245px;">3</text>
+          <text x="150" y="317" transform="scale(0.82, 1.15)" style="transform-origin: 150px 310px;">6</text>
+          <text x="81" y="253" transform="scale(0.82, 1.15)" style="transform-origin: 81px 245px;">9</text>
+        </g>
+
+        <!-- "M" Amblemi -->
+        <text x="150" y="206" fill="#23262b" font-family="Georgia, serif" font-weight="bold" font-size="11" text-anchor="middle">M</text>
+
+        <!-- Alt El Yazısı Marka İmzası -->
+        <text x="150" y="286" fill="#2b2f36" font-family="'Brush Script MT', 'Segoe Script', cursive" font-style="italic" font-size="11" text-anchor="middle">Meta Sery</text>
+      </g>
+
+      <!-- İBRELER (AKREP, YELKOVAN, SANİYE) -->
+      <!-- Akrep (Saat Kolu - Koyu Çelik/Metalik) -->
+      <g id="wall-clock-hour-hand" filter="url(#wall-clock-pieceShadow)">
+        <polygon points="148.2,253 149.2,202 150,198 150.8,202 151.8,253" fill="#2b2e33" stroke="#757a82" stroke-width="0.4" />
+      </g>
+
+      <!-- Yelkovan (Dakika Kolu - Koyu Çelik/Metalik) -->
+      <g id="wall-clock-minute-hand" filter="url(#wall-clock-pieceShadow)">
+        <polygon points="148.6,256 149.4,183 150,178 150.6,183 151.4,256" fill="#2b2e33" stroke="#757a82" stroke-width="0.4" />
+      </g>
+
+      <!-- Saniye Kolu (İlk saatinizdeki ince retro kırmızı/kiremit tonu) -->
+      <g id="wall-clock-second-hand">
+        <line x1="150" y1="264" x2="150" y2="174" stroke="#c84b3c" stroke-width="1.2" stroke-linecap="round" />
+      </g>
+
+      <!-- Merkez Krom Kapak Pimi -->
+      <circle cx="150" cy="245" r="4" fill="url(#wall-clock-chromeMetal)" stroke="#3b3e45" stroke-width="0.7" />
+      <circle cx="150" cy="245" r="1.4" fill="#ffffff" />
+    </svg>
       </figure>
 
       <div class="wall-column">
@@ -349,9 +490,11 @@
               <path d="M 21,25 L 21,30 M 19,26 A 3,3 0 1,0 27,26" fill="none" stroke="#8c8880" stroke-width="1.1" stroke-linecap="round" />
             </g>
 
-            <g class="switch-rocker switch-rocker-spare" tabindex="0" role="button" aria-label="Yedek anahtar" transform="translate(132, 14)">
+            <g class="switch-rocker switch-rocker-main" id="room-light-switch" data-function="light-toggle" tabindex="0" role="button" aria-label="Oda ışığını kapat" title="Oda ışığını kapat" aria-pressed="false" transform="translate(132, 14)">
               <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
               <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
+              <circle cx="23" cy="25" r="5" fill="none" stroke="#7c776f" stroke-width="1.1" />
+              <path d="M20 31h6M21 34h4" fill="none" stroke="#7c776f" stroke-width="1.1" stroke-linecap="round" />
             </g>
 
             <g class="switch-rocker switch-rocker-spare" tabindex="0" role="button" aria-label="Yedek anahtar" transform="translate(184, 14)">
@@ -364,14 +507,11 @@
               <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
             </g>
 
-            <g class="switch-rocker switch-rocker-main" id="room-light-switch" data-function="light-toggle" tabindex="0" role="button" aria-label="Oda ışığını kapat" title="Oda ışığını kapat" transform="translate(28,14)" aria-pressed="false" style="opacity:0; pointer-events:none;">
-              <rect class="rocker-body" x="0" y="0" width="46" height="56" rx="3" fill="url(#rockerGradH)" stroke="#b8b4ac" stroke-width="0.8" filter="url(#rockerShadow)" />
-              <line x1="23" y1="4" x2="23" y2="52" stroke="#d0ccc4" stroke-width="1.2" />
-            </g>
           </svg>
         </div>
 
         <div class="svg-shelf-wrapper" aria-label="Duvar kaset rafı">
+          <button class="shelf-page-button" id="cassette-shelf-prev" type="button" aria-label="Önceki kaset rafı sayfası" title="Önceki kasetler" hidden><span aria-hidden="true">‹</span></button>
           <svg viewBox="0 0 340 165" width="100%" xmlns="http://www.w3.org/2000/svg" class="cassette-rack-svg" role="group" aria-label="Rafdaki kasetler, en fazla 12 kaset">
             <defs>
               <filter id="wallShadow" x="-10%" y="-10%" width="125%" height="130%">
@@ -495,6 +635,7 @@
               <path d="M 16,53 L 22,53 M 318,53 L 324,53" stroke="#e3be96" stroke-width="1" stroke-opacity="0.8" />
             </g>
           </svg>
+          <button class="shelf-page-button" id="cassette-shelf-next" type="button" aria-label="Sonraki kaset rafı sayfası" title="Sonraki kasetler" hidden><span aria-hidden="true">›</span></button>
         </div>
 
       </div>
@@ -895,14 +1036,20 @@
             </div>
           </div>
             <section class="playlist-box" id="radio-list-box">
-              <header class="playlist-header">
-                <h2 class="playlist-title">
-                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <circle cx="12" cy="12" r="2"/><path d="M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M1 12h2M21 12h2M4.93 19.07l-1.41-1.41M19.07 19.07l-1.41-1.41M12 1v2M12 21v2"/>
+              <header class="playlist-header station-list-header">
+                <label class="station-search-wrap" for="station-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>
                   </svg>
-                  Canlı Radyo İstasyonları
-                </h2>
-                <span class="playlist-count" id="station-count">0 stations</span>
+                  <input id="station-search" class="station-search-input" type="search" placeholder="İstasyon ara…" autocomplete="off" aria-label="Radyo istasyonlarında ara">
+                </label>
+                <div class="station-list-controls">
+                  <div class="station-sort-group" role="group" aria-label="İstasyonları ada göre sırala">
+                    <button type="button" class="station-sort-button is-active" id="station-sort-az" aria-pressed="true" title="A'dan Z'ye sırala">A–Z</button>
+                    <button type="button" class="station-sort-button" id="station-sort-za" aria-pressed="false" title="Z'den A'ya sırala">Z–A</button>
+                  </div>
+                  <span class="playlist-count station-list-count" id="station-count">0 kanal</span>
+                </div>
               </header>
               <ul class="playlist-list" id="station-list" role="listbox" aria-label="Radyo İstasyonları"></ul>
             </section>
@@ -1085,6 +1232,9 @@
             <div class="retro-tv-bay" id="retro-tv-bay" aria-hidden="true">
               <div class="retro-tv-screen-shell">
                 <video id="retro-tv-video" class="retro-tv-video" playsinline controls preload="metadata"></video>
+                <button type="button" class="retro-tv-expand-button" id="retro-tv-expand" aria-label="TV görüntüsünü büyüt" title="Büyük video görünümünü aç">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><path d="M3 3l7 7M21 3l-7 7M3 21l7-7M21 21l-7-7"/></svg>
+                </button>
                 <div class="retro-tv-scanlines" aria-hidden="true"></div>
                 <div class="retro-tv-glass" aria-hidden="true"></div>
                 <div class="retro-tv-no-signal" id="retro-tv-no-signal">KANAL SEÇİNİZ</div>
@@ -1200,6 +1350,18 @@
                 </svg>
                   <span id="tape-list-title">Kaset Çalar ve Parçalar</span>
               </h2>
+              <div class="tv-channel-controls hidden" id="tv-channel-controls">
+                <label class="station-search-wrap" for="tv-channel-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>
+                  </svg>
+                  <input id="tv-channel-search" class="station-search-input" type="search" placeholder="Kanal ara…" autocomplete="off" aria-label="TV kanallarında ara">
+                </label>
+                <div class="station-sort-group" role="group" aria-label="TV kanallarını ada göre sırala">
+                  <button type="button" class="station-sort-button is-active" id="tv-channel-sort-az" aria-pressed="true" title="A'dan Z'ye sırala">A–Z</button>
+                  <button type="button" class="station-sort-button" id="tv-channel-sort-za" aria-pressed="false" title="Z'den A'ya sırala">Z–A</button>
+                </div>
+              </div>
               <span class="playlist-count" id="track-count">0 tracks</span>
               <div class="cassette-robot-launcher cassette-robot-launcher-inline">
           <img class="robot-svg" src="/robot.svg?v=robot-template-20261113" alt="Kaset oluşturma robotu" width="220" height="220" decoding="async" />
@@ -1246,10 +1408,20 @@
       <span class="utility-sep" aria-hidden="true">·</span>
       <button type="button" class="utility-action" data-mirror-switch="fullscreen-switch">Tam ekran</button>
       <span class="utility-sep" aria-hidden="true">·</span>
+      <button type="button" class="utility-action" data-mirror-switch="room-light-switch" aria-label="Oda ışığını kapat">Oda ışığı</button>
+      <span class="utility-sep" aria-hidden="true">·</span>
       <button type="button" class="utility-action" data-mirror-switch="player-power-switch">Güç</button>
     </footer>
 
   </main>
+
+  <dialog class="tv-player-dialog" id="tv-player-dialog" aria-labelledby="tv-player-dialog-title">
+    <div class="tv-player-dialog-bar">
+      <h2 id="tv-player-dialog-title">RETRO TV · CANLI YAYIN</h2>
+      <button type="button" class="tv-player-close" id="tv-player-close" aria-label="Büyük TV görünümünü kapat">×</button>
+    </div>
+    <div class="tv-player-dialog-screen" id="tv-player-dialog-screen"></div>
+  </dialog>
 
   <section class="seo-content" id="about" aria-labelledby="seo-content-title">
     <h2 id="seo-content-title">Online radyo dinle, retro kaset çaları keşfet</h2>
@@ -1312,6 +1484,6 @@
   <script src="visualizers-extra.js?v=20261115-2" defer></script>
   <!-- Uygulama -->
   <!-- TRACKER_BODY_CODE -->
-  <script src="app.js?v=retro-tv-20261115-3" defer></script>
+  <script src="app.js?v=ui-clock-20261116-3" defer></script>
 </body>
 </html>

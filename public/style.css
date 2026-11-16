@@ -50,6 +50,10 @@ body {
   transition: opacity 0.35s ease;
 }
 .app-bg.room-dim::before { opacity: 0.42; }
+.wall-column,
+.svg-shelf-wrapper { transition: filter 0.35s ease; }
+.app-bg.room-dim .wall-column,
+.app-bg.room-dim .svg-shelf-wrapper { filter: brightness(0.28) saturate(0.72); }
 
 /* ─── Boombox satırı ─── */
 .boombox-row {
@@ -121,15 +125,6 @@ body {
   height: calc(100% - 24px);
   object-fit: cover;
   background: #171815;
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-/* Albüm kapağı aktifken hafif zoom efekti */
-.wall-frame img.wall-artwork-active {
-  animation: artwork-appear 0.5s ease forwards;
-}
-@keyframes artwork-appear {
-  from { opacity: 0; transform: scale(1.04); }
-  to   { opacity: 1; transform: scale(1); }
 }
 .wall-clock {
   position: absolute;
@@ -243,6 +238,7 @@ body {
   pointer-events: none;
 }
 .svg-shelf-wrapper {
+  position: relative;
   width: min(100%, 330px);
   margin-top: 15px;
   pointer-events: auto;
@@ -274,6 +270,7 @@ body {
   filter: brightness(1.12) drop-shadow(0 4px 6px rgba(0,0,0,0.5));
 }
 .svg-tape.is-empty {
+  display: none;
   cursor: default;
   pointer-events: none;
 }
@@ -3333,7 +3330,8 @@ body.cassette-robot-is-hidden .robot-restore-inline { display: inline-flex; }
   .mobile-shelf-toggle {
     position: fixed;
     z-index: 40;
-    top: max(14px, env(safe-area-inset-top));
+    top: auto;
+    bottom: max(56px, calc(env(safe-area-inset-bottom) + 48px));
     right: max(12px, env(safe-area-inset-right));
     display: inline-flex;
     align-items: center;
@@ -4001,4 +3999,303 @@ body.cassette-robot-is-hidden .robot-restore-inline { display: inline-flex; }
 }
 @media (prefers-reduced-motion: reduce) {
   .deck-cassette-bay, .retro-tv-bay { transition-duration: .01ms; }
+}
+
+/* Radyo listesi arama ve sıralama kontrolleri */
+#radio-list-box .station-list-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.45rem;
+  padding: 0.55rem;
+}
+.station-search-wrap {
+  display: flex;
+  min-width: 0;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.65rem;
+  border: 1px solid #676960;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #171916, #252722);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.72), 0 1px rgba(255,255,255,0.14);
+  color: #c8b77d;
+}
+.station-search-wrap:focus-within {
+  border-color: #c4a852;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.72), 0 0 0 1px rgba(210,179,107,0.3);
+}
+.station-search-wrap svg {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+.station-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f1e7c8;
+  font: 600 0.72rem/1 system-ui, sans-serif;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.station-search-input::placeholder { color: #96978e; opacity: 1; }
+.station-search-input::-webkit-search-cancel-button { cursor: pointer; }
+.station-list-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.station-sort-group { display: inline-flex; gap: 0.3rem; }
+.station-sort-button {
+  min-width: 2.65rem;
+  min-height: 1.8rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid #777a76;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(100deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #c7cbc7, #898f8d 48%, #626866);
+  box-shadow: inset 0 1px rgba(255,255,255,0.55), inset 0 -2px 3px rgba(0,0,0,0.42), 0 1px 2px rgba(0,0,0,0.45);
+  color: #202321;
+  font: 800 0.62rem/1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.station-sort-button:hover { filter: brightness(1.08); }
+.station-sort-button.is-active,
+.station-sort-button[aria-pressed="true"] {
+  border-color: #b69a54;
+  background:
+    repeating-linear-gradient(100deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #e4cc83, #b59a57 52%, #89713d);
+  box-shadow: inset 0 1px rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.35), 0 0 5px rgba(210,179,107,0.22);
+}
+.station-sort-button:focus-visible { outline: 2px solid #f5d98e; outline-offset: 2px; }
+.station-list-count { margin-left: auto; white-space: nowrap; }
+.station-empty {
+  padding: 1rem 0.6rem;
+  color: #aaa99e;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+
+/* ─── İstasyon sürükle-bırak sıralaması ─────────────────────────────────── */
+.station-drag-handle {
+  flex: 0 0 22px;
+  width: 22px;
+  color: #aaa995;
+  font-size: .9rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.station-item[draggable="true"] { cursor: grab; }
+.station-item[draggable="true"]:active { cursor: grabbing; }
+#station-list li.is-dragging { opacity: .42; }
+#station-list li.is-drop-target { outline: 1px dashed #e2c46f; outline-offset: -2px; background: rgba(226,196,111,.1); }
+
+/* ─── Masaüstü kaset rafı sayfalama okları ─────────────────────────────── */
+.shelf-page-button {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  display: grid;
+  width: 23px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #55564f;
+  border-radius: 3px;
+  background: linear-gradient(100deg, #b9b5a8, #4b4c46 46%, #9d9b91);
+  box-shadow: inset 0 1px rgba(255,255,255,.5), 0 2px 4px rgba(0,0,0,.55);
+  color: #22231f;
+  font: 900 1.8rem/1 system-ui, sans-serif;
+  cursor: pointer;
+  transform: translateY(-50%);
+  touch-action: manipulation;
+}
+#cassette-shelf-prev { left: 1px; }
+#cassette-shelf-next { right: 1px; }
+.shelf-page-button:hover:not(:disabled) { filter: brightness(1.12); }
+.shelf-page-button:active:not(:disabled) { transform: translateY(-50%) scale(.94); }
+.shelf-page-button:disabled { opacity: .35; cursor: not-allowed; }
+.shelf-page-button:focus-visible { outline: 2px solid #f5d98e; outline-offset: 2px; }
+.shelf-page-button[hidden] { display: none !important; }
+
+/* ─── TV kanal arama/sıralama araçları ─────────────────────────────────── */
+#tape-list-box.is-tv-list .playlist-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .45rem;
+}
+#tape-list-box.is-tv-list .cassette-robot-launcher,
+#tape-list-box.is-tv-list .robot-restore-button { display: none !important; }
+.tv-channel-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .4rem;
+}
+.tv-channel-controls[hidden] { display: none !important; }
+.tv-channel-controls .station-search-wrap { height: 2rem; }
+.tv-channel-controls .station-sort-group { gap: .22rem; }
+.tv-channel-controls .station-sort-button { min-width: 2.35rem; min-height: 1.72rem; padding-inline: .32rem; }
+#tape-list-box.is-tv-list .playlist-count { white-space: nowrap; }
+.tv-channel-drag-handle {
+  flex: 0 0 18px;
+  width: 18px;
+  color: #aaa995;
+  font-size: .9rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+#track-list .track-item[draggable="true"] { cursor: grab; }
+#track-list .track-item[draggable="true"]:active { cursor: grabbing; }
+#track-list li.is-dragging { opacity: .42; }
+#track-list li.is-drop-target { outline: 1px dashed #e2c46f; outline-offset: -2px; background: rgba(226,196,111,.1); }
+@media (max-width: 639px) {
+  #tape-list-box.is-tv-list .playlist-header { gap: .35rem; padding: .45rem .5rem; }
+  .tv-channel-controls { gap: .25rem; }
+  .tv-channel-controls .station-search-wrap { height: 1.85rem; padding-inline: .4rem; gap: .3rem; }
+  .tv-channel-controls .station-sort-button { min-width: 2.05rem; padding-inline: .22rem; font-size: .56rem; }
+  #tape-list-box.is-tv-list .playlist-count { font-size: .5rem; }
+}
+
+/* ─── TV ekranını sayfa içi büyük oynatıcıda göster ───────────────────── */
+.retro-tv-expand-button {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 6px;
+  border: 1px solid rgba(190,220,198,.72);
+  border-radius: 5px;
+  background: rgba(11,20,15,.78);
+  color: #d9f3df;
+  box-shadow: 0 2px 8px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.18);
+  cursor: pointer;
+  opacity: .86;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.retro-tv-expand-button svg { width: 100%; height: 100%; }
+.retro-tv-expand-button:hover { opacity: 1; transform: scale(1.05); }
+.retro-tv-expand-button:focus-visible { outline: 2px solid #b5f0c5; outline-offset: 2px; }
+.tv-player-dialog {
+  width: min(96vw, 1240px);
+  max-width: 96vw;
+  max-height: 94dvh;
+  margin: auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #e7ecdf;
+  box-shadow: none;
+}
+.tv-player-dialog::backdrop { background: rgba(3,6,5,.82); backdrop-filter: blur(4px); }
+.tv-player-dialog-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 10px;
+}
+.tv-player-dialog-bar h2 {
+  min-width: 0;
+  overflow: hidden;
+  color: #d7d0ac;
+  font: 800 .78rem/1.2 'Courier New', monospace;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv-player-close {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #7b8177;
+  border-radius: 5px;
+  background: linear-gradient(#727871, #363b36);
+  color: #f2f3ed;
+  font: 700 1.5rem/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.tv-player-close:hover { filter: brightness(1.15); }
+.tv-player-close:focus-visible { outline: 2px solid #b5f0c5; outline-offset: 2px; }
+.tv-player-dialog-screen {
+  width: min(90vw, 1180px);
+  height: min(68dvh, 720px);
+  min-height: 240px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+}
+.tv-player-dialog-screen .retro-tv-screen-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 20px;
+}
+@media (max-width: 639px) {
+  .tv-player-dialog { width: calc(100vw - 16px); max-width: calc(100vw - 16px); }
+  .tv-player-dialog-screen { width: 100%; height: min(54dvh, 480px); min-height: 190px; }
+  .tv-player-dialog-screen .retro-tv-screen-shell { border-radius: 15px; }
+  .retro-tv-expand-button { top: 9px; right: 9px; width: 30px; height: 30px; }
+}
+
+
+/* ─── Verilen metalik retro sarkaçlı duvar saati ───────────────────────── */
+.wall-clock {
+  top: 5vh;
+  width: clamp(135px, 10vw, 190px);
+  height: auto;
+  aspect-ratio: 1 / 2;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.wall-clock-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.app-bg.room-dim .wall-clock {
+  filter: drop-shadow(0 0 8px rgba(255, 225, 160, 0.9)) drop-shadow(0 0 25px rgba(255, 184, 76, 0.62));
+}
+.app-bg.room-dim .wall-clock-svg { filter: brightness(1.2); }
+#wall-clock-pendulum-group {
+  transform-box: view-box;
+  transform-origin: 150px 380px;
+  animation: wall-clock-pendulum-swing 2.4s ease-in-out infinite;
+}
+@keyframes wall-clock-pendulum-swing {
+  0%, 100% { transform: rotate(-7.5deg); }
+  50% { transform: rotate(7.5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #wall-clock-pendulum-group { animation: none; }
 }

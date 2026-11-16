@@ -1034,3 +1034,60 @@ dialog::backdrop { background: rgba(0,0,0,0.65); }
   font-weight: 700;
 }
 .request-delete-button:hover { background: #873a32; }
+
+/* ─── Retro TV kanal editörü ─── */
+.tv-channel-admin-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.tv-channel-admin-search { width: min(520px, 100%); }
+.tv-channel-admin-toolbar > .muted { padding-bottom: 8px; white-space: nowrap; }
+.tv-channel-card { cursor: grab; }
+.tv-channel-card:active { cursor: grabbing; }
+.tv-channel-card.dragging { opacity: .42; outline: 2px dashed var(--gold); }
+.tv-channel-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.tv-channel-card-heading .tv-channel-card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #f0d496;
+  font-size: .88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv-channel-drag-handle { font-size: 1rem; }
+.tv-channel-card-heading .item-actions { flex-shrink: 0; }
+.tv-channel-card-heading [data-tv-action] { min-width: 32px; justify-content: center; }
+.tv-channel-fields {
+  display: grid;
+  grid-template-columns: minmax(75px, .55fr) minmax(140px, 1.15fr) minmax(110px, .9fr) minmax(110px, .9fr) minmax(220px, 2fr) minmax(90px, .65fr);
+  gap: 9px;
+  margin-top: 10px;
+}
+.tv-channel-fields label { min-width: 0; font-size: .73rem; }
+.tv-channel-fields input { min-height: 34px; padding: 6px 8px; font-size: .78rem; }
+.tv-channel-card[hidden] { display: none !important; }
+@media (max-width: 900px) {
+  .tv-channel-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tv-channel-url-field { grid-column: span 2; }
+}
+@media (max-width: 600px) {
+  .tv-channel-admin-toolbar { align-items: stretch; flex-direction: column; }
+  .tv-channel-admin-toolbar > .muted { padding-bottom: 0; }
+  .tv-channel-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-channel-url-field { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  .tv-channel-fields { grid-template-columns: 1fr; }
+  .tv-channel-url-field { grid-column: auto; }
+  .tv-channel-card-heading { flex-wrap: wrap; }
+  .tv-channel-card-heading .item-actions { margin-left: auto; }
+}

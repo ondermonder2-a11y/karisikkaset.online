@@ -1212,6 +1212,15 @@ class RadioController {
 class UI {
   constructor(app) {
     this._app = app;
+    this._stationSearchQuery = '';
+    this._stationCustomOrder = [];
+    try {
+      const savedOrder = JSON.parse(localStorage.getItem('kk_radio_station_order') || '[]');
+      if (Array.isArray(savedOrder)) this._stationCustomOrder = savedOrder.filter(key => typeof key === 'string');
+    } catch (_) {}
+    this._stationSortOrder = this._stationCustomOrder.length ? 'manual' : 'az';
+    this._cassetteShelfPage = 0;
+    this._cassetteShelfDirection = 0;
 
     // Ses seviyesi
     this._volume = parseFloat(localStorage.getItem('kk_volume') || '0.8');
@@ -1247,6 +1256,7 @@ class UI {
     this._bindKnobs();
     this._bindTransport();
     this._bindRadioTransport();
+    this._bindStationListControls();
     this.setRadioControlState(false);
     this._bindProgressBar();
     this._bindKeyboard();
@@ -1261,6 +1271,7 @@ class UI {
     this._bindInternalNavigation();
     this._updateFrequencyClock();
     this._clockTimer = setInterval(() => this._updateFrequencyClock(), 1_000);
+    this._tickAnalogWallClock();
     this._powerBootTimer = null;
     document.querySelector('.spectrum-modes')?.addEventListener('click', event => {
       const button = event.target.closest('[data-spectrum-style]');
@@ -1906,6 +1917,7 @@ class UI {
       const group = source.cloneNode(true);
       group.removeAttribute('transform');
       group.removeAttribute('filter');
+      group.querySelector('.svg-tape-label')?.setAttribute('transform', 'rotate(-90, 11, 65)');
       svg.appendChild(group);
       return svg;
     }
@@ -1981,6 +1993,15 @@ class UI {
   _bindCassetteShelf() {
     const shelf = document.querySelector('.cassette-rack-svg');
     if (!shelf) return;
+    const prevButton = document.getElementById('cassette-shelf-prev');
+    const nextButton = document.getElementById('cassette-shelf-next');
+    const navigate = delta => {
+      this._cassetteShelfPage += delta;
+      this._cassetteShelfDirection = delta;
+      this.renderCassetteShelf(this._app._tapes, this._app._tapeIdx, true);
+    };
+    prevButton?.addEventListener('click', () => navigate(-1));
+    nextButton?.addEventListener('click', () => navigate(1));
     const selectCassette = cassette => {
       if (cassette.getAttribute('aria-disabled') === 'true') return;
       const tapeIndex = this._app._tapes.findIndex(tape => tape.id === cassette.dataset.tape);
@@ -2221,12 +2242,33 @@ class UI {
     const app = document.querySelector('.app-bg');
     if (!app) return;
 
-    lightButton?.addEventListener('click', () => {
-      const dimmed = app.classList.toggle('room-dim');
-      lightButton.setAttribute('aria-pressed', String(dimmed));
+    const lightStorageKey = 'kk_room_light_off';
+    let dimmed = false;
+    try { dimmed = localStorage.getItem(lightStorageKey) === '1'; } catch {}
+    const updateRoomLightControls = () => {
+      app.classList.toggle('room-dim', dimmed);
       const label = dimmed ? 'Oda ışığını aç' : 'Oda ışığını kapat';
-      lightButton.setAttribute('aria-label', label);
-      lightButton.title = label;
+      lightButton?.classList.toggle('is-on', dimmed);
+      lightButton?.setAttribute('aria-pressed', String(dimmed));
+      lightButton?.setAttribute('aria-label', label);
+      if (lightButton) lightButton.title = label;
+      document.querySelectorAll('[data-mirror-switch="room-light-switch"]').forEach(mirror => {
+        mirror.textContent = dimmed ? 'Işığı aç' : 'Oda ışığı';
+        mirror.setAttribute('aria-label', label);
+        mirror.setAttribute('aria-pressed', String(dimmed));
+        mirror.title = label;
+      });
+    };
+    updateRoomLightControls();
+    lightButton?.addEventListener('click', () => {
+      dimmed = !dimmed;
+      updateRoomLightControls();
+      try { localStorage.setItem(lightStorageKey, dimmed ? '1' : '0'); } catch {}
+    });
+    lightButton?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      lightButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
     });
 
     fullscreenButton?.addEventListener('click', async () => {
@@ -2498,12 +2540,6 @@ class UI {
     const timeDisplay = document.getElementById('radio-time');
     if (!dateDisplay || !timeDisplay) return;
     const now = new Date();
-    const seconds = now.getSeconds();
-    const minutes = now.getMinutes();
-    const hours = now.getHours() % 12;
-    document.querySelector('.wall-clock-hour')?.style.setProperty('transform', `rotate(${hours * 30 + minutes * 0.5}deg)`);
-    document.querySelector('.wall-clock-minute')?.style.setProperty('transform', `rotate(${minutes * 6 + seconds * 0.1}deg)`);
-    document.querySelector('.wall-clock-second')?.style.setProperty('transform', `rotate(${seconds * 6}deg)`);
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
@@ -2515,6 +2551,22 @@ class UI {
     this._renderDigitalText(timeDisplay, time);
     dateDisplay.setAttribute('aria-label', `Tarih: ${date}`);
     timeDisplay.setAttribute('aria-label', `Saat: ${time}`);
+  }
+
+  _tickAnalogWallClock() {
+    const now = new Date();
+    const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
+    const minutes = now.getMinutes() + seconds / 60;
+    const hours = (now.getHours() % 12) + minutes / 60;
+    const dateLabel = document.getElementById('wall-clock-date');
+    if (dateLabel) {
+      const today = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
+      if (dateLabel.textContent !== today) dateLabel.textContent = today;
+    }
+    document.getElementById('wall-clock-second-hand')?.setAttribute('transform', `rotate(${seconds * 6} 150 245)`);
+    document.getElementById('wall-clock-minute-hand')?.setAttribute('transform', `rotate(${minutes * 6} 150 245)`);
+    document.getElementById('wall-clock-hour-hand')?.setAttribute('transform', `rotate(${hours * 30} 150 245)`);
+    this._wallClockFrame = requestAnimationFrame(() => this._tickAnalogWallClock());
   }
 
   setPowerState(powered, showBootEffect = powered) {
@@ -2793,7 +2845,11 @@ class UI {
   updateTapeStatus(isPlaying, track = null) {
     this._tapeDisplayActive = isPlaying;
     const deckBrandMode = document.getElementById('deck-brand-mode');
-    if (deckBrandMode) deckBrandMode.textContent = isPlaying ? 'TAPE' : 'STEREO FM RADIO';
+    if (deckBrandMode) {
+      deckBrandMode.textContent = window.retroTvController?.isActive
+        ? 'TV'
+        : isPlaying ? 'TAPE' : 'STEREO FM RADIO';
+    }
     this._renderDigitalFrequency(isPlaying ? 'TAPE' : this._currentFreq);
     const dot  = document.getElementById('tape-dot');
     const text = document.getElementById('tape-status-text');
@@ -3037,36 +3093,207 @@ class UI {
     });
   }
 
+  _bindStationListControls() {
+    const searchInput = document.getElementById('station-search');
+    const sortAz = document.getElementById('station-sort-az');
+    const sortZa = document.getElementById('station-sort-za');
+    const list = document.getElementById('station-list');
+    const renderCurrentList = () => this.renderStationList(
+      this._app._stations,
+      this._app._radioIdx,
+      Boolean(this._app._radio?.isOn)
+    );
+    const updateSortButtons = () => {
+      const azActive = this._stationSortOrder === 'az';
+      const zaActive = this._stationSortOrder === 'za';
+      sortAz?.classList.toggle('is-active', azActive);
+      sortAz?.setAttribute('aria-pressed', String(azActive));
+      sortZa?.classList.toggle('is-active', zaActive);
+      sortZa?.setAttribute('aria-pressed', String(zaActive));
+    };
+
+    searchInput?.addEventListener('input', () => {
+      this._stationSearchQuery = searchInput.value.trim().toLocaleLowerCase('tr-TR');
+      renderCurrentList();
+    });
+    sortAz?.addEventListener('click', () => {
+      this._stationSortOrder = 'az';
+      updateSortButtons();
+      renderCurrentList();
+    });
+    sortZa?.addEventListener('click', () => {
+      this._stationSortOrder = 'za';
+      updateSortButtons();
+      renderCurrentList();
+    });
+
+    let draggedIndex = -1;
+    list?.addEventListener('dragstart', event => {
+      const button = event.target.closest('.station-item[data-station-index]');
+      if (!button || this._stationSearchQuery || !event.dataTransfer) {
+        event.preventDefault();
+        return;
+      }
+      draggedIndex = Number(button.dataset.stationIndex);
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(draggedIndex));
+      button.closest('li')?.classList.add('is-dragging');
+    });
+    list?.addEventListener('dragover', event => {
+      const target = event.target.closest('.station-item[data-station-index]');
+      if (draggedIndex < 0 || !target || this._stationSearchQuery) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      list.querySelectorAll('li.is-drop-target').forEach(item => item.classList.remove('is-drop-target'));
+      target.closest('li')?.classList.add('is-drop-target');
+    });
+    list?.addEventListener('drop', event => {
+      const target = event.target.closest('.station-item[data-station-index]');
+      if (!target || draggedIndex < 0 || this._stationSearchQuery) return;
+      event.preventDefault();
+      this._reorderStations(draggedIndex, Number(target.dataset.stationIndex));
+      draggedIndex = -1;
+    });
+    list?.addEventListener('dragend', () => {
+      draggedIndex = -1;
+      list.querySelectorAll('li.is-dragging, li.is-drop-target').forEach(item => item.classList.remove('is-dragging', 'is-drop-target'));
+    });
+    let pointerDrag = null;
+    const clearPointerTarget = () => list?.querySelectorAll('li.is-drop-target').forEach(item => item.classList.remove('is-drop-target'));
+    list?.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' || this._stationSearchQuery) return;
+      const handle = event.target.closest('.station-drag-handle');
+      const button = handle?.closest('.station-item[data-station-index]');
+      if (!button) return;
+      pointerDrag = { pointerId: event.pointerId, sourceIndex: Number(button.dataset.stationIndex), targetIndex: -1, startY: event.clientY, moved: false };
+      try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+    list?.addEventListener('pointermove', event => {
+      if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      if (!pointerDrag.moved && Math.abs(event.clientY - pointerDrag.startY) < 7) return;
+      pointerDrag.moved = true;
+      event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.station-item[data-station-index]');
+      clearPointerTarget();
+      if (!target) return;
+      pointerDrag.targetIndex = Number(target.dataset.stationIndex);
+      target.closest('li')?.classList.add('is-drop-target');
+    });
+    const finishPointerDrag = event => {
+      if (!pointerDrag || (event && pointerDrag.pointerId !== event.pointerId)) return;
+      const drag = pointerDrag;
+      pointerDrag = null;
+      clearPointerTarget();
+      if (drag.moved && drag.targetIndex >= 0 && drag.targetIndex !== drag.sourceIndex) {
+        this._reorderStations(drag.sourceIndex, drag.targetIndex);
+      }
+    };
+    list?.addEventListener('pointerup', finishPointerDrag);
+    list?.addEventListener('pointercancel', finishPointerDrag);
+    updateSortButtons();
+  }
+
+  _stationKey(station) {
+    return String(station?.streamUrl || `${station?.name || ''}|${station?.frequency || ''}|${station?.genre || ''}`);
+  }
+
+  _orderedStationEntries(stations) {
+    const entries = stations.map((station, index) => ({ station, index, key: this._stationKey(station) }));
+    if (this._stationSortOrder === 'manual') {
+      const position = new Map(this._stationCustomOrder.map((key, index) => [key, index]));
+      return entries.sort((a, b) => (position.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (position.get(b.key) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index);
+    }
+    const direction = this._stationSortOrder === 'za' ? -1 : 1;
+    return entries.sort((a, b) => {
+      const byName = String(a.station.name || '').localeCompare(String(b.station.name || ''), 'tr-TR', { sensitivity: 'base', numeric: true });
+      const aFrequency = Number(a.station.frequency) || 0;
+      const bFrequency = Number(b.station.frequency) || 0;
+      return direction * (byName || aFrequency - bFrequency || a.index - b.index);
+    });
+  }
+
+  _reorderStations(fromIndex, toIndex) {
+    const stations = this._app._stations || [];
+    const list = document.getElementById('station-list');
+    if (!list || fromIndex === toIndex || !stations[fromIndex] || !stations[toIndex]) return;
+    this._stationSuppressClickUntil = Date.now() + 350;
+    const visibleKeys = Array.from(list.querySelectorAll('.station-item[data-station-index]'))
+      .map(button => stations[Number(button.dataset.stationIndex)])
+      .filter(Boolean)
+      .map(station => this._stationKey(station));
+    const fromKey = this._stationKey(stations[fromIndex]);
+    const toKey = this._stationKey(stations[toIndex]);
+    const fromPosition = visibleKeys.indexOf(fromKey);
+    const toPosition = visibleKeys.indexOf(toKey);
+    if (fromPosition < 0 || toPosition < 0) return;
+    visibleKeys.splice(toPosition, 0, visibleKeys.splice(fromPosition, 1)[0]);
+    const visibleSet = new Set(visibleKeys);
+    const allKeys = this._orderedStationEntries(stations).map(entry => entry.key);
+    let nextVisible = 0;
+    this._stationCustomOrder = allKeys.map(key => visibleSet.has(key) ? visibleKeys[nextVisible++] : key);
+    this._stationSortOrder = 'manual';
+    try { localStorage.setItem('kk_radio_station_order', JSON.stringify(this._stationCustomOrder)); } catch (_) {}
+    const az = document.getElementById('station-sort-az');
+    const za = document.getElementById('station-sort-za');
+    az?.classList.remove('is-active');
+    az?.setAttribute('aria-pressed', 'false');
+    za?.classList.remove('is-active');
+    za?.setAttribute('aria-pressed', 'false');
+    this.renderStationList(stations, this._app._radioIdx, Boolean(this._app._radio?.isOn));
+  }
+
   /* ─── Radyo listesini render et ─── */
   renderStationList(stations, activeIndex, isOn) {
     const list = document.getElementById('station-list');
     const countEl = document.getElementById('station-count');
     if (!list) return;
 
-    countEl.textContent = `${stations.length} station${stations.length !== 1 ? 's' : ''}`;
+    const query = this._stationSearchQuery;
+    const visibleStations = this._orderedStationEntries(stations)
+      .filter(({ station }) => {
+        if (!query) return true;
+        const frequency = Number(station.frequency);
+        const searchable = [
+          station.name,
+          station.genre,
+          Number.isFinite(frequency) ? frequency.toFixed(1) : station.frequency
+        ].filter(Boolean).join(' ').toLocaleLowerCase('tr-TR');
+        return searchable.includes(query);
+      });
+
+    countEl.textContent = query
+      ? `${visibleStations.length}/${stations.length} kanal`
+      : `${stations.length} kanal`;
 
     if (stations.length === 0) {
-      list.innerHTML = '<li class="station-item" style="justify-content:center;color:#71717a;cursor:default">Henüz istasyon yok</li>';
+      list.innerHTML = '<li class="station-empty">Henüz istasyon yok</li>';
+      return;
+    }
+    if (visibleStations.length === 0) {
+      list.innerHTML = '<li class="station-empty">Eşleşen istasyon bulunamadı</li>';
       return;
     }
 
     list.innerHTML = '';
-    stations.forEach((s, i) => {
-      const active = i === activeIndex;
+    visibleStations.forEach(({ station: s, index }) => {
+      const active = index === activeIndex;
       const li = document.createElement('li');
       li.setAttribute('role', 'option');
       li.setAttribute('aria-selected', active ? 'true' : 'false');
 
       const btn = document.createElement('button');
       btn.className = `station-item${active ? ' active' : ''}`;
-      btn.dataset.stationIndex = String(i);
+      btn.dataset.stationIndex = String(index);
       btn.type = 'button';
+      btn.draggable = !query && !('ontouchstart' in window);
+      btn.title = query ? 'Sıralamak için önce aramayı temizle' : 'Sürükleyerek sıralamayı değiştirebilirsin';
       const health = this._app._stationHealth.get(s.streamUrl);
       const statusText = health?.healthy === true ? 'Çevrimiçi' : health?.healthy === false ? 'Çevrimdışı' : s.isCustom ? 'Kişisel kanal' : 'Bağlantı kontrol ediliyor';
       btn.classList.toggle('is-offline', health?.healthy === false);
       btn.setAttribute('aria-label', `${s.frequency.toFixed(1)} MHz – ${s.name}${s.genre ? ` - ${s.genre}` : ''} - ${statusText}`);
 
       btn.innerHTML = `
+        <span class="station-drag-handle" aria-hidden="true">⠿</span>
         <span class="station-freq">${s.frequency.toFixed(1)}</span>
         <span class="station-info">
           <span class="station-info-name">${this._esc(s.name || '')}</span>
@@ -3075,7 +3302,10 @@ class UI {
         <span class="station-health-badge ${health?.healthy === true ? 'is-online' : health?.healthy === false ? 'is-offline' : ''}" title="${this._esc(health?.message || (s.isCustom ? 'Kişisel kaset kanalına bağlı istasyon.' : 'İstasyon bağlantı kontrolü bekleniyor.'))}">${health?.healthy === true ? 'ONLINE' : health?.healthy === false ? 'OFFLINE' : s.isCustom ? 'KİŞİSEL' : 'TEST'}</span>
         ${active ? `<span class="station-dot ${isOn ? 'playing' : ''}"></span>` : ''}
       `;
-      btn.addEventListener('click', () => this._app.switchToRadio(i));
+      btn.addEventListener('click', () => {
+        if ((this._stationSuppressClickUntil || 0) > Date.now()) return;
+        this._app.switchToRadio(index);
+      });
       li.appendChild(btn);
       list.appendChild(li);
     });
@@ -3106,8 +3336,9 @@ class UI {
   scrollStationIntoView(index) {
     const list = document.getElementById('station-list');
     if (!list) return;
-    const item = list.querySelectorAll('li')[index];
-    item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const button = Array.from(list.querySelectorAll('.station-item[data-station-index]'))
+      .find(item => Number(item.dataset.stationIndex) === index);
+    button?.closest('li')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   /* ─── Kaset listesini render et ─── */
@@ -3163,7 +3394,7 @@ class UI {
     item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
-  renderCassetteShelf(tapes, activeTapeIdx) {
+  renderCassetteShelf(tapes, activeTapeIdx, preservePage = false) {
     const activeTape = tapes[activeTapeIdx];
     const cassetteName = document.getElementById('cassette-set-name');
     if (cassetteName) cassetteName.textContent = activeTape?.label || 'Kaset seç';
@@ -3176,7 +3407,24 @@ class UI {
     const shelfTapes = [
       ...allEntries.filter(entry => entry.tape?.isCustom),
       ...allEntries.filter(entry => !entry.tape?.isCustom),
-    ].slice(0, MAX_SHELF_TAPES);
+    ];
+    const activeShelfIndex = shelfTapes.findIndex(entry => entry.tapeIndex === activeTapeIdx);
+    if (!preservePage && activeShelfIndex >= 0) this._cassetteShelfPage = Math.floor(activeShelfIndex / MAX_SHELF_TAPES);
+    const pageCount = Math.max(1, Math.ceil(shelfTapes.length / MAX_SHELF_TAPES));
+    this._cassetteShelfPage = Math.max(0, Math.min(pageCount - 1, this._cassetteShelfPage));
+    const pageTapes = shelfTapes.slice(this._cassetteShelfPage * MAX_SHELF_TAPES, (this._cassetteShelfPage + 1) * MAX_SHELF_TAPES);
+    const prevButton = document.getElementById('cassette-shelf-prev');
+    const nextButton = document.getElementById('cassette-shelf-next');
+    if (prevButton) {
+      prevButton.hidden = false;
+      prevButton.disabled = this._cassetteShelfPage <= 0 || pageCount <= 1;
+      prevButton.title = `Önceki kasetler (${this._cassetteShelfPage + 1}/${pageCount})`;
+    }
+    if (nextButton) {
+      nextButton.hidden = false;
+      nextButton.disabled = this._cassetteShelfPage >= pageCount - 1;
+      nextButton.title = `Sonraki kasetler (${this._cassetteShelfPage + 1}/${pageCount})`;
+    }
     const cassetteColors = ['#8ab097','#c4515c','#467599','#814785','#d4a04a','#637368','#4a7c59','#9b4a6e'];
     const fallbackTextColors = ['#1d2d24','#fff5f5','#f0f7ff','#fdf4ff','#1a120b','#f1f5f2','#f0fff4','#fff0f7'];
     const getCassetteColors = (tape, tapeIndex) => {
@@ -3194,7 +3442,7 @@ class UI {
 
     const rackSlots = Array.from(svg.querySelectorAll('.svg-tape'));
     const usedTapeIds = new Set();
-    const slotAssignments = rackSlots.map((_, slotIndex) => shelfTapes[slotIndex] || null);
+    const slotAssignments = rackSlots.map((_, slotIndex) => pageTapes[slotIndex] || null);
 
     rackSlots.forEach((cassette, slotIndex) => {
       const assignment = slotAssignments[slotIndex];
@@ -3240,8 +3488,8 @@ class UI {
       if (m) maxX = Math.max(maxX, Number(m[1]));
     });
 
-    // Eksik kasetleri tek sıraya dik olarak ekle; raf kapasitesi 12 ile sınırlı.
-    shelfTapes.forEach(({ tape, tapeIndex }) => {
+    // Görünür sayfadaki slotları tamamla; toplam kaset sayısı sayfalarla sınırlandırılmaz.
+    pageTapes.forEach(({ tape, tapeIndex }) => {
       if (existingIds.has(tape.id)) return; // zaten var
 
       // Yeni dik kaset slotu oluştur
@@ -3303,6 +3551,14 @@ class UI {
       svg.insertBefore(g, svg.querySelector('.shelf-front'));
       existingIds.add(tape.id);
     });
+    const direction = this._cassetteShelfDirection;
+    this._cassetteShelfDirection = 0;
+    if (direction && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches && typeof svg.animate === 'function') {
+      svg.animate([
+        { transform: `translateX(${direction > 0 ? '16px' : '-16px'})`, opacity: 0.72 },
+        { transform: 'translateX(0)', opacity: 1 },
+      ], { duration: 360, easing: 'cubic-bezier(.2,.78,.2,1)' });
+    }
   }
 
   /** HTML escape */
@@ -3346,11 +3602,10 @@ class UI {
 
   _restoreRoomPicture(img) {
     img.classList.remove('wall-artwork-active');
-    img.alt = '';
+    img.alt = 'Karışık Kaset retro oda dekorasyonu';
     const source = img.closest('picture')?.querySelector('source');
     if (source) source.setAttribute('srcset', '/arkaplan/background.webp');
-    // setRandomRoomPictures() global fonksiyonunu tekrar çağır
-    if (typeof setRandomRoomPictures === 'function') setRandomRoomPictures();
+    img.src = '/arkaplan/background.jpg';
   }
 
   get volume() { return this._volume; }
@@ -3707,6 +3962,13 @@ class App {
     const tape  = this._activeTape;
     const track = this._activeTrack;
 
+    // Mobil tarayıcılar oynatmayı doğrudan kullanıcı dokunuşuna bağlayabilir.
+    // Seçilen satır aşağıda yeniden render edilip tıklanan düğme kaldırılmadan
+    // önce widget'a yükle/çal isteğini gönder.
+    if (track && track.type !== 'radio' && track.soundcloudUrl) {
+      this._tape.load(track.soundcloudUrl, autoPlay);
+    }
+
     this._ui.renderCassetteShelf(this._tapes, tapeIdx);
     this._ui.renderTrackList(tape?.tracks || [], trackIdx, this._errorTracks, tapeIdx);
     this._ui.scrollTrackIntoView(trackIdx);
@@ -3731,7 +3993,6 @@ class App {
       return;
     }
 
-    if (track) this._tape.load(track.soundcloudUrl, autoPlay);
   }
 
   playStatic() {
@@ -3901,13 +4162,57 @@ class RetroTvController {
     this.list = document.getElementById('track-list');
     this.title = document.getElementById('tape-list-title');
     this.count = document.getElementById('track-count');
+    this.channelControls = document.getElementById('tv-channel-controls');
+    this.channelSearch = document.getElementById('tv-channel-search');
+    this.channelSortAz = document.getElementById('tv-channel-sort-az');
+    this.channelSortZa = document.getElementById('tv-channel-sort-za');
+    this.channelQuery = '';
+    this.channelCustomOrder = [];
+    try {
+      const savedOrder = JSON.parse(localStorage.getItem('kk_tv_channel_order') || '[]');
+      if (Array.isArray(savedOrder)) this.channelCustomOrder = savedOrder.filter(key => typeof key === 'string');
+    } catch (_) {}
+    this.channelSortOrder = this.channelCustomOrder.length ? 'manual' : 'az';
     this.noSignal = document.getElementById('retro-tv-no-signal');
     this.caption = document.getElementById('retro-tv-caption');
     this.statusDot = document.getElementById('tape-dot');
     this.statusText = document.getElementById('tape-status-text');
+    this.screenShell = document.querySelector('.retro-tv-screen-shell');
+    this.expandedDialog = document.getElementById('tv-player-dialog');
+    this.expandedStage = document.getElementById('tv-player-dialog-screen');
+    this.expandedTitle = document.getElementById('tv-player-dialog-title');
+    this.expandedCloseButton = document.getElementById('tv-player-close');
+    this._screenHome = null;
+    this._screenHomeNextSibling = null;
 
     document.getElementById('mode-tv')?.addEventListener('click', () => this.setMode(true));
     document.getElementById('mode-tape')?.addEventListener('click', () => this.setMode(false));
+    this.channelSearch?.addEventListener('input', () => {
+      this.channelQuery = this.channelSearch.value.trim().toLocaleLowerCase('tr-TR');
+      this._renderChannels();
+    });
+    this.channelSortAz?.addEventListener('click', () => {
+      this.channelSortOrder = 'az';
+      this._updateChannelSortButtons();
+      this._renderChannels();
+    });
+    this.channelSortZa?.addEventListener('click', () => {
+      this.channelSortOrder = 'za';
+      this._updateChannelSortButtons();
+      this._renderChannels();
+    });
+    this._updateChannelSortButtons();
+    this._bindChannelReordering();
+
+    this.expandedCloseButton?.addEventListener('click', () => this.closeExpandedPlayer());
+    this.expandedDialog?.addEventListener('click', event => {
+      if (event.target === this.expandedDialog) this.closeExpandedPlayer();
+    });
+    this.expandedDialog?.addEventListener('close', () => this._restoreScreenShell());
+    document.getElementById('retro-tv-expand')?.addEventListener('click', event => {
+      event.stopPropagation();
+      this.openExpandedPlayer();
+    });
 
     if (this.video) {
       this.video.addEventListener('play', () => {
@@ -3936,11 +4241,11 @@ class RetroTvController {
       });
     }
 
-    const screenShell = document.querySelector('.retro-tv-screen-shell');
-    if (screenShell) {
-      screenShell.style.cursor = 'pointer';
-      screenShell.addEventListener('click', (e) => {
+    if (this.screenShell) {
+      this.screenShell.style.cursor = 'pointer';
+      this.screenShell.addEventListener('click', (e) => {
         if (!this.isActive) return;
+        if (e.target.closest?.('#retro-tv-expand')) return;
         if (e.target.tagName === 'VIDEO' && e.target.hasAttribute('controls') && e.offsetY > e.target.clientHeight - 40) {
           return;
         }
@@ -3972,15 +4277,53 @@ class RetroTvController {
     }
   }
 
+  openExpandedPlayer() {
+    if (!this.isActive || !this.screenShell || !this.expandedDialog || !this.expandedStage || typeof this.expandedDialog.showModal !== 'function') return;
+    if (this.expandedDialog.open) return;
+    this._screenHome = this.screenShell.parentNode;
+    this._screenHomeNextSibling = this.screenShell.nextSibling;
+    this.expandedStage.appendChild(this.screenShell);
+    if (this.expandedTitle) this.expandedTitle.textContent = this.caption?.textContent || 'RETRO TV · CANLI YAYIN';
+    try {
+      this.expandedDialog.showModal();
+      this.expandedCloseButton?.focus();
+    } catch (error) {
+      this._restoreScreenShell();
+      console.warn('[Retro TV] Büyük oynatıcı açılamadı:', error);
+    }
+  }
+
+  closeExpandedPlayer() {
+    if (this.expandedDialog?.open) this.expandedDialog.close();
+    else this._restoreScreenShell();
+  }
+
+  _restoreScreenShell() {
+    if (!this.screenShell || !this._screenHome) return;
+    const anchor = this._screenHomeNextSibling?.parentNode === this._screenHome ? this._screenHomeNextSibling : null;
+    this._screenHome.insertBefore(this.screenShell, anchor);
+    this._screenHome = null;
+    this._screenHomeNextSibling = null;
+  }
+
   setMode(tvMode) {
+    if (!tvMode) this.closeExpandedPlayer();
     if (!this.app._powered) return;
     if (tvMode && !this.isActive) this.app.stop();
     this.isActive = Boolean(tvMode);
     const titleLabel = document.getElementById('tape-display-label');
     if (titleLabel) titleLabel.textContent = this.isActive ? 'TV' : 'TAPE';
+    const deckBrandMode = document.getElementById('deck-brand-mode');
+    if (deckBrandMode) deckBrandMode.textContent = this.isActive
+      ? 'TV'
+      : this.app._ui?._tapeDisplayActive ? 'TAPE' : 'STEREO FM RADIO';
     document.getElementById('tape-title-icon')?.classList.toggle('hidden', this.isActive);
     document.getElementById('tv-title-icon')?.classList.toggle('hidden', !this.isActive);
     this.display?.classList.toggle('is-tv-mode', this.isActive);
+    this.title?.closest('.playlist-title')?.classList.toggle('hidden', this.isActive);
+    this.channelControls?.classList.toggle('hidden', !this.isActive);
+    document.getElementById('tape-list-box')?.classList.toggle('is-tv-list', this.isActive);
+    this.list?.setAttribute('aria-label', this.isActive ? 'Retro TV kanalları' : 'Kaset parçaları');
     document.getElementById('retro-tv-bay')?.setAttribute('aria-hidden', String(!this.isActive));
     document.getElementById('mode-tv')?.classList.toggle('is-active', this.isActive);
     document.getElementById('mode-tv')?.setAttribute('aria-pressed', String(this.isActive));
@@ -3990,12 +4333,12 @@ class RetroTvController {
     if (this.isActive) {
       this.app._spectrum?.setMode('tv');
       this.app._spectrum?.setTvPlaying(Boolean(this.video && !this.video.paused));
-      if (!this._rendered) {
-        this._renderChannels();
-        this._rendered = true;
-      }
+      // Kaset ve TV aynı #track-list alanını kullanır. TAPE'e dönünce
+      // app._ui.renderTrackList() bu alanı kaset parçalarıyla değiştirir;
+      // dolayısıyla TV'ye her geçişte kanalları tekrar çizmek gerekir.
+      this._renderChannels();
+      this._rendered = true;
       if (this.title) this.title.textContent = 'Retro TV Kanalları';
-      if (this.count) this.count.textContent = `${this.channels.length} kanal`;
       if (this.statusText) this.statusText.textContent = 'TV STANDBY';
       if (this.activeIndex < 0 && this.channels.length) {
         this.selectChannel(0);
@@ -4020,32 +4363,170 @@ class RetroTvController {
     if (!this.list) return;
     this.list.innerHTML = '';
     if (!this.channels.length) {
-      this.list.innerHTML = '<li class="track-item" style="justify-content:center;color:#71717a;cursor:default">Kanal listesi bulunamadı</li>';
+      if (this.count) this.count.textContent = '0 kanal';
+      this.list.innerHTML = '<li class="station-empty">Kanal listesi bulunamadı</li>';
+      return;
+    }
+    const query = this.channelQuery;
+    const visibleChannels = this._orderedChannelEntries()
+      .filter(({ channel }) => {
+        if (!query) return true;
+        const searchable = [channel.name, channel.category, channel.type, channel.genre, channel.frequency, channel.number, channel.status]
+          .filter(value => value !== undefined && value !== null)
+          .join(' ')
+          .toLocaleLowerCase('tr-TR');
+        return searchable.includes(query);
+      });
+    if (this.count) this.count.textContent = query ? `${visibleChannels.length}/${this.channels.length} kanal` : `${this.channels.length} kanal`;
+    if (!visibleChannels.length) {
+      this.list.innerHTML = '<li class="station-empty">Eşleşen kanal bulunamadı</li>';
       return;
     }
     const frag = document.createDocumentFragment();
-    this.channels.forEach((channel, index) => {
+    visibleChannels.forEach(({ channel, index }) => {
       const li = document.createElement('li');
       li.setAttribute('role', 'option');
       li.setAttribute('aria-selected', String(index === this.activeIndex));
       const button = document.createElement('button');
       button.type = 'button';
+      button.dataset.channelIndex = String(index);
       button.className = `track-item${index === this.activeIndex ? ' active' : ''}`;
-      button.innerHTML = `<span class="track-num">${String(channel.number ?? index + 1).padStart(2, '0')}</span><span class="track-info"><span class="track-info-title">${this._esc(channel.name)}</span><span class="track-info-sub">${this._esc(channel.category || 'Retro yayın')} · ${this._esc(channel.status || 'HAZIR')}</span></span><span class="track-duration">TV</span>`;
-      button.addEventListener('click', () => this.selectChannel(index));
+      button.draggable = !query && !('ontouchstart' in window);
+      button.title = query ? 'Sıralamak için önce aramayı temizle' : 'Sürükleyerek kanal sırasını değiştirebilirsin';
+      button.innerHTML = `<span class="tv-channel-drag-handle" aria-hidden="true">⠿</span><span class="track-num">${String(channel.number ?? index + 1).padStart(2, '0')}</span><span class="track-info"><span class="track-info-title">${this._esc(channel.name)}</span><span class="track-info-sub">${this._esc(channel.category || channel.type || 'Retro yayın')} · ${this._esc(channel.status || 'HAZIR')}</span></span><span class="track-duration">TV</span>`;
+      button.addEventListener('click', () => {
+        if ((this._channelSuppressClickUntil || 0) > Date.now()) return;
+        this.selectChannel(index);
+      });
       li.appendChild(button);
       frag.appendChild(li);
     });
     this.list.appendChild(frag);
   }
 
+  _updateChannelSortButtons() {
+    const azActive = this.channelSortOrder === 'az';
+    const zaActive = this.channelSortOrder === 'za';
+    this.channelSortAz?.classList.toggle('is-active', azActive);
+    this.channelSortAz?.setAttribute('aria-pressed', String(azActive));
+    this.channelSortZa?.classList.toggle('is-active', zaActive);
+    this.channelSortZa?.setAttribute('aria-pressed', String(zaActive));
+  }
+
+  _channelKey(channel) {
+    return String(channel?.streamUrl || `${channel?.name || ''}|${channel?.number ?? ''}|${channel?.category || channel?.type || ''}`);
+  }
+
+  _orderedChannelEntries() {
+    const entries = this.channels.map((channel, index) => ({ channel, index, key: this._channelKey(channel) }));
+    if (this.channelSortOrder === 'manual') {
+      const position = new Map(this.channelCustomOrder.map((key, index) => [key, index]));
+      return entries.sort((a, b) => (position.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (position.get(b.key) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index);
+    }
+    const direction = this.channelSortOrder === 'za' ? -1 : 1;
+    return entries.sort((a, b) => direction * String(a.channel.name || '').localeCompare(String(b.channel.name || ''), 'tr-TR', { sensitivity: 'base', numeric: true }) || a.index - b.index);
+  }
+
+  _bindChannelReordering() {
+    const list = this.list;
+    if (!list) return;
+    let draggedIndex = -1;
+    list.addEventListener('dragstart', event => {
+      const button = event.target.closest('.track-item[data-channel-index]');
+      if (!button || this.channelQuery || !event.dataTransfer) {
+        event.preventDefault();
+        return;
+      }
+      draggedIndex = Number(button.dataset.channelIndex);
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(draggedIndex));
+      button.closest('li')?.classList.add('is-dragging');
+    });
+    list.addEventListener('dragover', event => {
+      const target = event.target.closest('.track-item[data-channel-index]');
+      if (draggedIndex < 0 || !target || this.channelQuery) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      list.querySelectorAll('li.is-drop-target').forEach(item => item.classList.remove('is-drop-target'));
+      target.closest('li')?.classList.add('is-drop-target');
+    });
+    list.addEventListener('drop', event => {
+      const target = event.target.closest('.track-item[data-channel-index]');
+      if (!target || draggedIndex < 0 || this.channelQuery) return;
+      event.preventDefault();
+      this._reorderChannels(draggedIndex, Number(target.dataset.channelIndex));
+      draggedIndex = -1;
+    });
+    list.addEventListener('dragend', () => {
+      draggedIndex = -1;
+      list.querySelectorAll('li.is-dragging, li.is-drop-target').forEach(item => item.classList.remove('is-dragging', 'is-drop-target'));
+    });
+
+    let pointerDrag = null;
+    const clearPointerTarget = () => list.querySelectorAll('li.is-drop-target').forEach(item => item.classList.remove('is-drop-target'));
+    list.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' || this.channelQuery) return;
+      const handle = event.target.closest('.tv-channel-drag-handle');
+      const button = handle?.closest('.track-item[data-channel-index]');
+      if (!button) return;
+      pointerDrag = { pointerId: event.pointerId, sourceIndex: Number(button.dataset.channelIndex), targetIndex: -1, startY: event.clientY, moved: false };
+      try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+    list.addEventListener('pointermove', event => {
+      if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+      if (!pointerDrag.moved && Math.abs(event.clientY - pointerDrag.startY) < 7) return;
+      pointerDrag.moved = true;
+      event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.track-item[data-channel-index]');
+      clearPointerTarget();
+      if (!target) return;
+      pointerDrag.targetIndex = Number(target.dataset.channelIndex);
+      target.closest('li')?.classList.add('is-drop-target');
+    });
+    const finishPointerDrag = event => {
+      if (!pointerDrag || (event && pointerDrag.pointerId !== event.pointerId)) return;
+      const drag = pointerDrag;
+      pointerDrag = null;
+      clearPointerTarget();
+      if (drag.moved && drag.targetIndex >= 0 && drag.targetIndex !== drag.sourceIndex) {
+        this._reorderChannels(drag.sourceIndex, drag.targetIndex);
+      }
+    };
+    list.addEventListener('pointerup', finishPointerDrag);
+    list.addEventListener('pointercancel', finishPointerDrag);
+  }
+
+  _reorderChannels(fromIndex, toIndex) {
+    const list = this.list;
+    if (!list || fromIndex === toIndex || !this.channels[fromIndex] || !this.channels[toIndex] || this.channelQuery) return;
+    this._channelSuppressClickUntil = Date.now() + 350;
+    const visibleKeys = Array.from(list.querySelectorAll('.track-item[data-channel-index]'))
+      .map(button => this.channels[Number(button.dataset.channelIndex)])
+      .filter(Boolean)
+      .map(channel => this._channelKey(channel));
+    const fromKey = this._channelKey(this.channels[fromIndex]);
+    const toKey = this._channelKey(this.channels[toIndex]);
+    const fromPosition = visibleKeys.indexOf(fromKey);
+    const toPosition = visibleKeys.indexOf(toKey);
+    if (fromPosition < 0 || toPosition < 0) return;
+    visibleKeys.splice(toPosition, 0, visibleKeys.splice(fromPosition, 1)[0]);
+    const visibleSet = new Set(visibleKeys);
+    const allKeys = this._orderedChannelEntries().map(entry => entry.key);
+    let nextVisible = 0;
+    this.channelCustomOrder = allKeys.map(key => visibleSet.has(key) ? visibleKeys[nextVisible++] : key);
+    this.channelSortOrder = 'manual';
+    try { localStorage.setItem('kk_tv_channel_order', JSON.stringify(this.channelCustomOrder)); } catch (_) {}
+    this._updateChannelSortButtons();
+    this._renderChannels();
+  }
+
   _updateActiveChannel(index) {
     if (!this.list) return;
     const items = this.list.querySelectorAll('li');
-    items.forEach((li, i) => {
-      const active = (i === index);
-      li.setAttribute('aria-selected', String(active));
+    items.forEach(li => {
       const btn = li.querySelector('.track-item');
+      const active = Number(btn?.dataset.channelIndex) === index;
+      li.setAttribute('aria-selected', String(active));
       btn?.classList.toggle('active', active);
       if (active) {
         li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -4176,52 +4657,6 @@ class RetroTvController {
     return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
   }
 }
-
-const ROOM_PICTURE_IMAGES = [
-  'pexels-zeynep-sude-emek-193601188-36753970.webp',
-  'pexels-wal_-172619-2156618639-37738870.webp',
-  'pexels-theroshanbhatt-32419298.webp',
-  'pexels-steve-30784971.webp',
-  'pexels-sirokad-37818592.webp',
-  'pexels-sami-aksu-48867324-11254754.webp',
-  'pexels-recepcelikphoto-13672091.webp',
-  'pexels-nazar-aslan-443954785-33068045.webp',
-  'pexels-edward-jenner-4253054.webp',
-  'pexels-burakarli-39533353.webp',
-  'pexels-astar-537690801-26202179.webp',
-  'pexels-arnetx-34780375.webp'
-];
-
-function setRandomRoomPictures() {
-  const images = [...ROOM_PICTURE_IMAGES];
-  for (let i = images.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [images[i], images[j]] = [images[j], images[i]];
-  }
-  const image = document.getElementById('wall-picture-right');
-  if (!image || !images[0]) return;
-  const source = image.closest('picture')?.querySelector('source');
-  if (source) source.setAttribute('srcset', `/arkaplan/${images[0]}`);
-  image.onerror = () => {
-    if (image.src.endsWith('.webp')) {
-      image.onerror = () => console.warn(`[Room decor] Tablo görseli yüklenemedi: /arkaplan/${images[0]}`);
-      if (source) source.setAttribute('srcset', `/arkaplan/${images[0].replace(/\.webp$/i, '.jpg')}`);
-      image.src = `/arkaplan/${images[0].replace(/\.webp$/i, '.jpg')}`;
-    }
-  };
-  image.decoding = 'async';
-  image.fetchPriority = 'low';
-  image.src = `/arkaplan/${images[0]}`;
-}
-
-const scheduleRoomPicture = () => {
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(setRandomRoomPictures, { timeout: 2500 });
-  } else {
-    window.setTimeout(setRandomRoomPictures, 1200);
-  }
-};
-scheduleRoomPicture();
 
 /* ═══════════════════════════════════════════════════════
    DİNLEYİCİ HEARTBEAT

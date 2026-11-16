@@ -143,6 +143,7 @@ const Drag = {
    ═══════════════════════════════════════════════ */
 let stations       = [];
 let tapes          = [];
+let tvChannels      = [];
 let draftTape      = null;
 let draftTapeId    = null;
 let allRequests    = [];
@@ -731,6 +732,195 @@ document.getElementById('add-station-form').addEventListener('submit', e => {
   document.getElementById('add-station-wrap').removeAttribute('open');
   Toast.info('Eklendi', `"${st.name}" listeye eklendi. Kaydetmeyi unutmayın.`);
 });
+
+/* ═══════════════════════════════════════════════
+   RETRO TV KANALLARI SEKMESİ
+   ═══════════════════════════════════════════════ */
+const tvChannelsList = document.getElementById('tv-channels-list');
+const tvChannelSearch = document.getElementById('tv-channel-admin-search');
+const tvChannelCount = document.getElementById('tv-channel-admin-count');
+
+function readTvChannelsFromDOM() {
+  if (!tvChannelsList) return tvChannels;
+  return Array.from(tvChannelsList.querySelectorAll('.tv-channel-card'))
+    .map(card => card.tvChannel)
+    .filter(Boolean);
+}
+
+function filterTvChannelCards() {
+  if (!tvChannelsList) return;
+  const query = tvChannelSearch?.value.trim().toLocaleLowerCase('tr-TR') || '';
+  let shown = 0;
+  const cards = Array.from(tvChannelsList.querySelectorAll('.tv-channel-card'));
+  cards.forEach(card => {
+    const channel = tvChannels[Number(card.dataset.index)];
+    const searchable = [channel?.name, channel?.category, channel?.status, channel?.number, channel?.streamUrl, channel?.type]
+      .filter(value => value !== undefined && value !== null)
+      .join(' ')
+      .toLocaleLowerCase('tr-TR');
+    card.hidden = Boolean(query && !searchable.includes(query));
+    card.draggable = !query;
+    if (!card.hidden) shown++;
+    card.querySelectorAll('[data-tv-action="up"], [data-tv-action="down"]').forEach(button => {
+      button.disabled = Boolean(query) || (button.dataset.tvAction === 'up' ? Number(card.dataset.index) === 0 : Number(card.dataset.index) === tvChannels.length - 1);
+    });
+  });
+  if (tvChannelCount) tvChannelCount.textContent = query ? `${shown}/${tvChannels.length} kanal` : `${tvChannels.length} kanal`;
+}
+
+function renderTvChannels() {
+  if (!tvChannelsList) return;
+  tvChannelsList.replaceChildren();
+  tvChannels.forEach((channel, index) => {
+    const card = document.createElement('article');
+    card.className = 'item-card tv-channel-card';
+    card.dataset.index = String(index);
+    card.tvChannel = channel;
+    const heading = document.createElement('div');
+    heading.className = 'tv-channel-card-heading';
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle tv-channel-drag-handle';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.textContent = '⠿';
+    const title = document.createElement('strong');
+    title.className = 'tv-channel-card-title';
+    title.textContent = channel.name || 'Yeni kanal';
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
+    const up = makeBtn('↑', 'button-secondary btn-sm', () => moveTvChannelCard(card, -1));
+    up.dataset.tvAction = 'up';
+    up.setAttribute('aria-label', `${channel.name || 'Kanal'} yukarı taşı`);
+    const down = makeBtn('↓', 'button-secondary btn-sm', () => moveTvChannelCard(card, 1));
+    down.dataset.tvAction = 'down';
+    down.setAttribute('aria-label', `${channel.name || 'Kanal'} aşağı taşı`);
+    const remove = makeBtn('Sil', 'button-danger btn-sm', () => removeTvChannelCard(card));
+    actions.append(up, down, remove);
+    heading.append(handle, title, actions);
+
+    const fields = document.createElement('div');
+    fields.className = 'tv-channel-fields';
+    const addField = (labelText, key, value, options = {}) => {
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      const input = document.createElement('input');
+      input.value = value ?? '';
+      input.dataset.tvField = key;
+      input.type = options.type || 'text';
+      if (options.maxLength) input.maxLength = options.maxLength;
+      if (options.min != null) input.min = options.min;
+      if (options.max != null) input.max = options.max;
+      if (options.step != null) input.step = options.step;
+      if (options.full) label.classList.add('tv-channel-url-field');
+      input.addEventListener('input', () => {
+        channel[key] = input.type === 'number' ? Number(input.value) : input.value;
+        if (key === 'name') {
+          title.textContent = input.value.trim() || 'Yeni kanal';
+          remove.setAttribute('aria-label', `${channel.name || 'Kanal'} sil`);
+          up.setAttribute('aria-label', `${channel.name || 'Kanal'} yukarı taşı`);
+          down.setAttribute('aria-label', `${channel.name || 'Kanal'} aşağı taşı`);
+        }
+        filterTvChannelCards();
+      });
+      label.append(input);
+      fields.append(label);
+    };
+    addField('Sıra no', 'number', channel.number ?? index + 1, { type: 'number', min: '1', max: '9999', step: '1' });
+    addField('Kanal adı', 'name', channel.name, { maxLength: 120 });
+    addField('Kategori', 'category', channel.category, { maxLength: 80 });
+    addField('Durum', 'status', channel.status, { maxLength: 80 });
+    addField('Yayın bağlantısı', 'streamUrl', channel.streamUrl, { type: 'url', maxLength: 2048, full: true });
+    addField('Tür', 'type', channel.type, { maxLength: 32 });
+    card.append(heading, fields);
+    tvChannelsList.append(card);
+  });
+  filterTvChannelCards();
+}
+
+function moveTvChannelCard(card, direction) {
+  if (tvChannelSearch?.value.trim()) return;
+  const ordered = readTvChannelsFromDOM();
+  const selected = tvChannels[Number(card.dataset.index)];
+  const from = ordered.indexOf(selected);
+  const to = from + direction;
+  if (from < 0 || to < 0 || to >= ordered.length) return;
+  ordered.splice(to, 0, ordered.splice(from, 1)[0]);
+  tvChannels = ordered;
+  renderTvChannels();
+}
+
+function removeTvChannelCard(card) {
+  const selected = card.tvChannel;
+  if (!selected || !confirm(`"${selected.name || 'Yeni kanal'}" silinsin mi?`)) return;
+  tvChannels = readTvChannelsFromDOM().filter(channel => channel !== selected);
+  renderTvChannels();
+  Toast.warning('Kanal listeden kaldırıldı', 'Kalıcı olması için TV kanallarını kaydedin.');
+}
+
+tvChannelSearch?.addEventListener('input', filterTvChannelCards);
+document.getElementById('add-tv-channel')?.addEventListener('click', () => {
+  tvChannels = readTvChannelsFromDOM();
+  const nextNumber = Math.max(0, ...tvChannels.map(channel => Number(channel.number) || 0)) + 1;
+  tvChannels.push({ number: nextNumber, name: '', category: 'General', status: 'CANLI', streamUrl: '', type: 'hls' });
+  if (tvChannelSearch) tvChannelSearch.value = '';
+  renderTvChannels();
+  tvChannelsList?.lastElementChild?.querySelector('[data-tv-field="name"]')?.focus();
+});
+
+document.getElementById('save-tv-channels')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const result = await api('/api/admin/tv-channels', {
+      method: 'PUT',
+      body: JSON.stringify({ channels: readTvChannelsFromDOM() }),
+    });
+    tvChannels = result.channels || [];
+    renderTvChannels();
+    Toast.success('TV kanalları kaydedildi', `${tvChannels.length} kanal güncellendi.`);
+  } catch (error) {
+    Toast.error('TV kanalları kaydedilemedi.', error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+let draggedTvChannelCard = null;
+tvChannelsList?.addEventListener('dragstart', event => {
+  const card = event.target.closest('.tv-channel-card');
+  if (!card || tvChannelSearch?.value.trim()) {
+    event.preventDefault();
+    return;
+  }
+  draggedTvChannelCard = card;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', card.dataset.index);
+  card.classList.add('dragging');
+});
+tvChannelsList?.addEventListener('dragover', event => {
+  const target = event.target.closest('.tv-channel-card');
+  if (!draggedTvChannelCard || !target || target === draggedTvChannelCard || tvChannelSearch?.value.trim()) return;
+  event.preventDefault();
+  const rect = target.getBoundingClientRect();
+  tvChannelsList.insertBefore(draggedTvChannelCard, event.clientY > rect.top + rect.height / 2 ? target.nextSibling : target);
+});
+tvChannelsList?.addEventListener('drop', event => {
+  if (!draggedTvChannelCard) return;
+  event.preventDefault();
+  tvChannels = readTvChannelsFromDOM();
+  draggedTvChannelCard.classList.remove('dragging');
+  draggedTvChannelCard = null;
+  renderTvChannels();
+});
+tvChannelsList?.addEventListener('dragend', () => {
+  draggedTvChannelCard?.classList.remove('dragging');
+  draggedTvChannelCard = null;
+});
+
+async function loadTvChannels() {
+  const result = await api('/api/admin/tv-channels');
+  tvChannels = Array.isArray(result.channels) ? result.channels : [];
+  renderTvChannels();
+}
 
 /* ═══════════════════════════════════════════════
    KASETLER SEKMESİ
@@ -1448,6 +1638,8 @@ document.addEventListener('keydown', e => {
     const activeTab = document.querySelector('.tab.active');
     if (activeTab?.dataset.tab === 'stations') {
       document.getElementById('save-stations').click();
+    } else if (activeTab?.dataset.tab === 'tv-channels') {
+      document.getElementById('save-tv-channels').click();
     } else if (activeTab?.dataset.tab === 'tapes') {
       document.getElementById('save-tape').click();
     } else if (activeTab?.dataset.tab === 'site-code') {
@@ -1467,6 +1659,12 @@ async function loadDashboard() {
 
   renderStations();
   await refreshStationHealth();
+  try {
+    await loadTvChannels();
+  } catch (error) {
+    if (tvChannelsList) tvChannelsList.textContent = `TV kanalları yüklenemedi: ${error.message}`;
+    Toast.error('TV kanalları yüklenemedi.', error.message);
+  }
 
   if (tapes.length) setTapeDraft(tapes[0], tapes[0].id);
   else              setTapeDraft({ label:'', category:'', color:'#1a237e', tracks:[] });
