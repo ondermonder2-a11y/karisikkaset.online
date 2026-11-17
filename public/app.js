@@ -2560,8 +2560,11 @@ class UI {
     const hours = (now.getHours() % 12) + minutes / 60;
     const dateLabel = document.getElementById('wall-clock-date');
     if (dateLabel) {
-      const today = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
-      if (dateLabel.textContent !== today) dateLabel.textContent = today;
+      const day = String(now.getDate()).padStart(2, '0');
+      if (dateLabel.textContent !== day) {
+        dateLabel.textContent = day;
+        dateLabel.setAttribute('aria-label', `Gün: ${day}`);
+      }
     }
     document.getElementById('wall-clock-second-hand')?.setAttribute('transform', `rotate(${seconds * 6} 150 245)`);
     document.getElementById('wall-clock-minute-hand')?.setAttribute('transform', `rotate(${minutes * 6} 150 245)`);
@@ -2653,7 +2656,8 @@ class UI {
       A: 'abcefg',
       E: 'adefg',
       P: 'abefg',
-      T: 'defg'
+      T: 'defg',
+      V: 'cde'
     };
     const isText = typeof freq === 'string';
     const value = isText ? freq : freq.toFixed(1);
@@ -2850,7 +2854,9 @@ class UI {
         ? 'TV'
         : isPlaying ? 'TAPE' : 'STEREO FM RADIO';
     }
-    this._renderDigitalFrequency(isPlaying ? 'TAPE' : this._currentFreq);
+    this._renderDigitalFrequency(window.retroTvController?.isActive
+      ? 'TV'
+      : isPlaying ? 'TAPE' : this._currentFreq);
     const dot  = document.getElementById('tape-dot');
     const text = document.getElementById('tape-status-text');
     if (isPlaying) {
@@ -4317,6 +4323,9 @@ class RetroTvController {
     if (deckBrandMode) deckBrandMode.textContent = this.isActive
       ? 'TV'
       : this.app._ui?._tapeDisplayActive ? 'TAPE' : 'STEREO FM RADIO';
+    this.app._ui?._renderDigitalFrequency(this.isActive
+      ? 'TV'
+      : this.app._ui?._tapeDisplayActive ? 'TAPE' : this.app._ui?._currentFreq);
     document.getElementById('tape-title-icon')?.classList.toggle('hidden', this.isActive);
     document.getElementById('tv-title-icon')?.classList.toggle('hidden', !this.isActive);
     this.display?.classList.toggle('is-tv-mode', this.isActive);
