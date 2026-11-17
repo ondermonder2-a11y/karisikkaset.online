@@ -279,6 +279,8 @@ class TapeController {
     this._autoplayAttempt = 0;
     this._autoplayTimer = null;
     this._playRetryTimers = [];
+    this._finishFallbackTimer = null;
+    this._finishHandled = true;
     this._initAttempts = 0;
 
     // Callback'ler (dışarıdan set edilir)
@@ -312,6 +314,8 @@ class TapeController {
     });
     this._widget.bind(SC.Widget.Events.PLAY, () => {
       this._isPlaying = true;
+      this._finishHandled = false;
+      this._clearFinishFallback();
       this._applyVolume('play');
       clearTimeout(this._autoplayTimer);
       this._autoplayTimer = null;
@@ -323,8 +327,7 @@ class TapeController {
       this.onPause?.();
     });
     this._widget.bind(SC.Widget.Events.FINISH, () => {
-      this._isPlaying = false;
-      this.onFinish?.();
+      this._handleFinish();
     });
     this._widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
       this._currentPosition = (data.currentPosition || 0) / 1000; // ms → s
@@ -335,6 +338,9 @@ class TapeController {
         this._currentDuration = durationMs / 1000;
       }
       this.onProgress?.({ position: this._currentPosition, duration: this._currentDuration });
+      if (this._currentDuration > 0 && this._currentPosition >= this._currentDuration - 1.75) {
+        this._scheduleFinishFallback(this._autoplayAttempt);
+      }
     });
     // Hata olayı
     this._widget.bind(SC.Widget.Events.ERROR, (err) => {
@@ -367,6 +373,7 @@ class TapeController {
     this._isPlaying = false;
     const autoplayAttempt = ++this._autoplayAttempt;
     clearTimeout(this._autoplayTimer);
+    this._clearFinishFallback();
     this._clearPlayRetries();
     this._widget.load(scUrl, {
       auto_play: autoPlay,
@@ -397,7 +404,10 @@ class TapeController {
       } catch (error) {
         console.debug('[Tape] Mobil ilk play denemesi bekleniyor:', error?.message || error);
       }
-      [120, 450, 1000].forEach(delay => {
+      // Mobil ağlarda widget/stream geç hazır olabilir. İlk deneme yukarıda
+      // kullanıcı dokunuşunun senkron akışında yapılır; bu tekrarlar yükleme
+      // tamamlandığında kaçan komutu yakalamak içindir.
+      [120, 350, 800, 1500, 2600, 4200, 6500, 9000].forEach(delay => {
         const timer = window.setTimeout(() => {
           if (autoplayAttempt !== this._autoplayAttempt || this._isPlaying) return;
           this._widget?.play();
@@ -408,13 +418,46 @@ class TapeController {
         if (autoplayAttempt === this._autoplayAttempt && !this._isPlaying) {
           this.onAutoplayBlocked?.();
         }
-      }, 4000);
+      }, 12000);
     }
   }
 
   _clearPlayRetries() {
     this._playRetryTimers.forEach(timer => clearTimeout(timer));
     this._playRetryTimers = [];
+  }
+
+  _clearFinishFallback() {
+    clearTimeout(this._finishFallbackTimer);
+    this._finishFallbackTimer = null;
+  }
+
+  _scheduleFinishFallback(attempt) {
+    if (this._finishFallbackTimer || this._finishHandled) return;
+    this._finishFallbackTimer = window.setTimeout(() => {
+      this._finishFallbackTimer = null;
+      if (attempt !== this._autoplayAttempt || this._finishHandled || !this._widget) return;
+      this._widget.getPosition(positionMs => {
+        const position = Number(positionMs) / 1000;
+        if (
+          attempt === this._autoplayAttempt &&
+          !this._finishHandled &&
+          Number.isFinite(position) &&
+          this._currentDuration > 0 &&
+          position >= this._currentDuration - 0.75
+        ) {
+          this._handleFinish();
+        }
+      });
+    }, 1300);
+  }
+
+  _handleFinish() {
+    if (this._finishHandled) return;
+    this._finishHandled = true;
+    this._isPlaying = false;
+    this._clearFinishFallback();
+    this.onFinish?.();
   }
 
   play()  {
@@ -427,6 +470,7 @@ class TapeController {
   }
   pause() {
     this._clearPlayRetries();
+    this._clearFinishFallback();
     this._widget?.pause();
   }
 
