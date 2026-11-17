@@ -480,3 +480,26 @@ git add -- "dosya-yolu"
 cd /home/onder/apps/karisikkaset-deploy
 bash deploy.sh
 ```
+
+
+cd "D:\Projeler\Node\karisikkaset"
+
+docker compose up -d --build app
+docker compose ps
+
+
+git status --short
+
+git add README.md `
+  public/admin.css `
+  public/admin.html `
+  public/admin.js `
+  public/app.js `
+  public/index.html `
+  public/style.css `
+  server.js
+
+git commit -m "Update TV admin, clock and room controls"
+
+$branch = git branch --show-current
+git push -u origin $branch
